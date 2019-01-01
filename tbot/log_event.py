@@ -20,8 +20,104 @@ import typing
 from tbot import log
 from tbot.log import u, c
 
-__all__ = ("testcase_begin", "testcase_end", "command")
+__all__ = ("doc_begin", "doc_image", "doc_cmd", "doc_tag", "doc_end", "testcase_begin", "testcase_end", "command")
 
+"""
+    Documentation generator searchs for a "doc" "begin" event
+    and searches for a file with name docid_begin.rst and writes
+    the content to the output file. After start is found it then
+    writes all log types "cmd" to output, until it finds an "end".
+    Nested "begin" is possible.
+
+    log types                                           output
+
+    types != "doc"                                      none
+
+    "doc", "begin", "docid" -> ? docid_begin.rst ->     content of docid_begin.rst
+    "cmd"                                               "data" in cmd block"
+    "cmd"                                               "data" in cmd block", added to the above
+                                                        cmd block
+    "doc", "begin", "docid" -> ? docid_begin.rst ->     content of docid_begin.rst
+    "cmd"                                               "data" in cmd block
+    "doc", "end", "docid" -> ? docid_end.rst ->         content of docid_end.rst
+    "cmd"                                               "data" in cmd block
+    "doc", "end", "docid" -> ? docid_end.rst ->         content of docid_end.rst
+
+    "doc", "cmd", "docid" -> ? docid_cmd.rst ->         content of docid_cmd.rst
+
+    types != "doc"                                      none
+
+
+    "doc", "tag", "tagid" "tagval"                      replace in the resulting rst
+                                                        file all "tagid" occurencies
+                                                        with "tagval".
+                                                        If tagid contains "fixlen",
+                                                        to short "tagval" are filled up with
+                                                        spaces.
+
+    :param str docid: ID of the doc section
+"""
+
+def doc_begin(docid: str) -> None:
+    """
+    Log a doc ID beginning.
+    
+    :param str docid: ID of the doc section
+    """
+    log.EventIO(
+        ["doc", "begin"],
+        verbosity=log.Verbosity.QUIET,
+        docid=docid,
+    )
+
+def doc_image(imagename: str) -> None:
+    """
+    insert image imagename into rst
+
+    :param str imagename: name of the image which gets inserted into rst
+    """
+    log.EventIO(
+        ["doc", "image"],
+        verbosity=log.Verbosity.QUIET,
+        imagename=imagename,
+    )
+
+def doc_cmd(docid: str) -> None:
+    """
+    Log a doc cmd ID event
+
+    :param str docid: ID of the doc cmd
+    """
+    log.EventIO(
+        ["doc", "cmd"],
+        verbosity=log.Verbosity.QUIET,
+        docid=docid,
+    )
+
+def doc_tag(tagid: str, tagval: str) -> None:
+    """
+    Log a doc tag ID event
+
+    :param str docid: ID of the doc tag
+    """
+    log.EventIO(
+        ["doc", "tag"],
+        verbosity=log.Verbosity.QUIET,
+        tagid=tagid,
+        tagval=tagval
+    )
+
+def doc_end(docid: str) -> None:
+    """
+    Log a doc ID end.
+
+    :param str docid: ID of the doc section
+    """
+    log.EventIO(
+        ["doc", "end"],
+        verbosity=log.Verbosity.QUIET,
+        docid=docid,
+    )
 
 def testcase_begin(name: str) -> None:
     """
