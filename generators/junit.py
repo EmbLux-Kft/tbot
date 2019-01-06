@@ -161,10 +161,6 @@ def main() -> None:
     testcases: typing.List[junit_xml.TestCase] = []
     for i, toplevel in enumerate(toplevels):
         testcases += toplevel_to_junit(i, toplevel)
-    print(
-        json.dumps(list(map(lambda x: f"{x.classname}", testcases)), indent=4),
-        file=sys.stderr,
-    )
 
     print(junit_xml.TestSuite.to_xml_string([junit_xml.TestSuite("tbot", testcases)]))
 
