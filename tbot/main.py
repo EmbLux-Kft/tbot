@@ -149,6 +149,8 @@ def main() -> None:  # noqa: C901
 
     if args.workdir:
         os.chdir(args.workdir)
+    else:
+        args.workdir = os.getcwd()
 
     from tbot import log, log_event
 
@@ -239,6 +241,8 @@ def main() -> None:  # noqa: C901
             )
         return
     # }}}
+
+    tbot.selectable.workdir = args.workdir
 
     # Load configs {{{
     # Set the actual selected types, needs to be ignored by mypy
