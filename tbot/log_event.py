@@ -66,7 +66,8 @@ def doc_begin(docid: str) -> None:
     """
     log.EventIO(
         ["doc", "begin"],
-        verbosity=log.Verbosity.QUIET,
+        message=f"add doc begin {docid}",
+        verbosity=log.Verbosity.CHANNEL,
         docid=docid,
     )
 
@@ -78,7 +79,8 @@ def doc_image(imagename: str) -> None:
     """
     log.EventIO(
         ["doc", "image"],
-        verbosity=log.Verbosity.QUIET,
+        message=f"add doc image {imagename}",
+        verbosity=log.Verbosity.CHANNEL,
         imagename=imagename,
     )
 
@@ -90,7 +92,8 @@ def doc_cmd(docid: str) -> None:
     """
     log.EventIO(
         ["doc", "cmd"],
-        verbosity=log.Verbosity.QUIET,
+        message=f"add doc cmd {docid}",
+        verbosity=log.Verbosity.CHANNEL,
         docid=docid,
     )
 
@@ -102,7 +105,8 @@ def doc_tag(tagid: str, tagval: str) -> None:
     """
     log.EventIO(
         ["doc", "tag"],
-        verbosity=log.Verbosity.QUIET,
+        message=f"add doc tag {tagid} {tagval}",
+        verbosity=log.Verbosity.CHANNEL,
         tagid=tagid,
         tagval=tagval
     )
@@ -115,7 +119,8 @@ def doc_end(docid: str) -> None:
     """
     log.EventIO(
         ["doc", "end"],
-        verbosity=log.Verbosity.QUIET,
+        message=f"add doc end {docid}",
+        verbosity=log.Verbosity.CHANNEL,
         docid=docid,
     )
 
