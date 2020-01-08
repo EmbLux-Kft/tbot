@@ -96,6 +96,11 @@ def parse_log(
 
             stack[-1].sub_steps.append(ShellStep(command, output))
 
+        elif ev.type[0] == "board" and ev.type[1] == "linux":
+            command = "linux bootlog"
+            output = ev.data["output"]
+            stack[-1].sub_steps.append(ShellStep(command, output))
+
     return toplevels
 
 
