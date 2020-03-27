@@ -171,6 +171,16 @@ class LinuxBootLogin(machine.Initializer, LinuxBoot):
                     prompt=self.login_prompt, timeout=self._timeout_remaining()
                 )
 
+                while 1:
+                    try:
+                        self.ch.read_until_prompt(
+                            prompt=self.login_prompt, timeout=self.login_delay
+                        )
+                        break
+                    except TimeoutError:
+                        self.ch.sendline("")
+                        pass
+
             self.ch.sendline(self.username)
             if self.password is not None:
                 timeout = self._timeout_remaining()
@@ -197,6 +207,9 @@ class LinuxBootLogin(machine.Initializer, LinuxBoot):
                 else:
                     # No timeout exception means we're at the password prompt.
                     self.ch.sendline(self.password)
+
+            if self.login_delay != 0:
+                time.sleep(self.login_delay)
 
         yield None
 
