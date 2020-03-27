@@ -106,16 +106,18 @@ class LinuxBootLogin(machine.Initializer, LinuxBoot):
             ev = cx.enter_context(self._linux_boot_event())
             cx.enter_context(self.ch.with_stream(ev))
 
-            self.ch.read_until_prompt(prompt=self.login_prompt)
-
             # On purpose do not login immediately as we may get some
             # console flooding from upper SW layers (and tbot's console
             # setup may get broken)
             if self.login_delay != 0:
-                # Read everything while waiting for timeout to expire
-                self.ch.read_until_timeout(self.login_delay)
-
-                self.ch.sendline("")
+                while 1:
+                    try:
+                        self.ch.read_until_prompt(prompt=self.login_prompt, timeout=self.login_delay)
+                        break
+                    except TimeoutError:
+                        self.ch.sendline("")
+                        pass
+            else:
                 self.ch.read_until_prompt(prompt=self.login_prompt)
 
             self.ch.sendline(self.username)
