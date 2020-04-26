@@ -54,4 +54,11 @@ The following events are emitted by tbot (possibly incomplete):
 * ``["tbot", "end"]`` - Emitted once after all testcases completed (or failed).  ``data`` knows about
   the total ``"duration"`` and overall ``"success"``.
 
+* ``["doc", "tag"]`` - doc tag ``data`` contains the ``["tagid": <str>, "tagval":<str>]``.
+
+  |tagid|tagval|
+  |.....|......|
+  |GIT_CURRENT_COMMIT| current checkout commit in git repo |
+
+
 More might be added in the future.

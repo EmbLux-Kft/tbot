@@ -18,6 +18,7 @@ import typing
 import tbot
 import enum
 from tbot.machine import linux
+from tbot import log_event
 
 H = typing.TypeVar("H", bound=linux.LinuxShell)
 
@@ -123,6 +124,11 @@ class GitRepository(linux.Path[H]):
 
                 if rev:
                     self.checkout(rev)
+
+        # get current commit and create doc tag
+        cur_com = self.git0("rev-parse", "HEAD")
+        cur_com = cur_com.strip()
+        log_event.doc_tag("GIT_CURRENT_COMMIT", cur_com)
 
     def git(
         self, *args: typing.Union[str, linux.Path[H], linux.special.Special]
