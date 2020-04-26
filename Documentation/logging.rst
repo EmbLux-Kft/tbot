@@ -60,6 +60,10 @@ The following events are emitted by tbot (possibly incomplete):
   |.....|......|
   |BUILD_TOOLCHAIN| current used toolchain for build |
   |GIT_CURRENT_COMMIT| current checkout commit in git repo |
+  |UBOOT_BUILD_ARCH| U-Boot build architecture |
+  |UBOOT_BUILD_CPU| U-Boot build CPU |
+  |UBOOT_BUILD_DEFCONFIG| used defconfig for U-Boot build |
+  |UBOOT_BUILD_SOC| U-Boot build SoC |
 
 
 More might be added in the future.

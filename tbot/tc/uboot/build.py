@@ -19,6 +19,7 @@ import typing
 import tbot
 from tbot.machine import linux
 from tbot.tc import git
+from tbot import log_event
 
 H = typing.TypeVar("H", bound=linux.LinuxShell)
 BH = typing.TypeVar("BH", bound=linux.Builder)
@@ -152,6 +153,23 @@ class UBootBuilder(abc.ABC):
         else:
             return bh.enable(self.toolchain)
 
+    def get_cfg_opt(self, bh: BH, fn: str, option: str) -> str:
+        """
+        search in file fn on build host bh the option option
+
+        return value if found, else string "unknown"
+        """
+        val = bh.exec("grep", option, fn)
+        if val[0] != 0:
+            return "unknown"
+
+        v = val[1]
+        v = v.split(" ")[-1]
+        v = v.strip()
+        v = v.replace(" ", "")
+        v = v.replace('"', "")
+        return v
+
     def do_configure(self, bh: BH, repo: git.GitRepository[BH]) -> None:
         """
         Build-Step to generate the build configuration.
@@ -163,6 +181,9 @@ class UBootBuilder(abc.ABC):
 
         bh.exec0("make", self.defconfig)
 
+        # add event tag what we have configured
+        log_event.doc_tag("UBOOT_BUILD_DEFCONFIG", self.defconfig)
+
     def do_build(self, bh: BH, repo: git.GitRepository[BH]) -> None:
         """
         Build-Step to actually build U-Boot.
@@ -171,6 +192,17 @@ class UBootBuilder(abc.ABC):
         """
         nproc = int(bh.exec0("nproc", "--all"))
         bh.exec0("make", "-j", str(nproc), "all")
+
+        # add event tag what we have build
+        log_event.doc_tag(
+            "UBOOT_BUILD_ARCH", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_SOC")
+        )
+        log_event.doc_tag(
+            "UBOOT_BUILD_SOC", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_ARCH")
+        )
+        log_event.doc_tag(
+            "UBOOT_BUILD_CPU", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_CPU")
+        )
 
     # --------------------------------------------------------------------------- #
     @staticmethod
