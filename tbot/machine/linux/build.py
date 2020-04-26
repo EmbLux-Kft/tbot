@@ -21,6 +21,7 @@ import typing
 from . import linux_shell, path
 import tbot
 from tbot.machine import linux
+from tbot import log_event
 
 
 class Toolchain(abc.ABC):
@@ -272,6 +273,7 @@ class EnvSetLinaroToolchain(Toolchain):
 
         host.exec0("printenv", "ARCH")
         host.exec0("printenv", "CROSS_COMPILE")
+        log_event.doc_tag("BUILD_TOOLCHAIN", f"{link_path}")
 
     def __init__(
         self, host_arch: str, arch: str, date: str, gcc_vers: str, gcc_subvers: str
@@ -351,6 +353,7 @@ class EnvSetBootlinToolchain(Toolchain):
             host.exec0("export", "CROSS_COMPILE=arm-linux-")
         host.exec0("printenv", "ARCH")
         host.exec0("printenv", "CROSS_COMPILE")
+        log_event.doc_tag("BUILD_TOOLCHAIN", f"{fn}")
 
     def __init__(self, arch: str, libc: str, typ: str, date: str) -> None:
         """

@@ -58,6 +58,7 @@ The following events are emitted by tbot (possibly incomplete):
 
   |tagid|tagval|
   |.....|......|
+  |BUILD_TOOLCHAIN| current used toolchain for build |
   |GIT_CURRENT_COMMIT| current checkout commit in git repo |
 
 
