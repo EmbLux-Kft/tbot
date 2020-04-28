@@ -195,10 +195,10 @@ class UBootBuilder(abc.ABC):
 
         # add event tag what we have build
         log_event.doc_tag(
-            "UBOOT_BUILD_ARCH", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_SOC")
+            "UBOOT_BUILD_ARCH", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_ARCH")
         )
         log_event.doc_tag(
-            "UBOOT_BUILD_SOC", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_ARCH")
+            "UBOOT_BUILD_SOC", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_SOC")
         )
         log_event.doc_tag(
             "UBOOT_BUILD_CPU", self.get_cfg_opt(bh, "u-boot.cfg", "CONFIG_SYS_CPU")
