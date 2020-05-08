@@ -84,11 +84,24 @@ class DistroToolchain(Toolchain):
             }
     """
 
-    def __init__(self, arch: str, prefix: str) -> None:
+    def __init__(self, path: str, arch: str, prefix: str) -> None:
+        self.path = path
         self.arch = arch
         self.prefix = prefix
 
     def enable(self, host: H) -> None:
+        ret = host.exec(
+            "printenv",
+            "PATH",
+            tbot.machine.linux.Pipe,
+            "grep",
+            "--color=never",
+            self.path,
+        )
+        if ret[0] == 1:
+            tbot.log.message("Add toolchain to PATH " + self.path)
+            host.exec0(linux.Raw("export PATH=" + self.path + ":$PATH"))
+
         host.env("ARCH", self.arch)
         host.env("CROSS_COMPILE", self.prefix)
 
