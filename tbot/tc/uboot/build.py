@@ -263,7 +263,8 @@ class UBootBuilder(abc.ABC):
                 path = builder.do_repo_path(host)
 
             repo = builder.do_checkout(path, clean=clean, rev=rev or builder.revision)
-            builder.do_patch(repo)
+            if clean:
+                builder.do_patch(repo)
 
         return repo
 
