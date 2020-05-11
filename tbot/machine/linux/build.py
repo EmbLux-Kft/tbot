@@ -120,6 +120,8 @@ class DistroToolchain(Toolchain):
         ]:
             host.env(tool.upper(), self.prefix + tool)
 
+        log_event.doc_tag("BUILD_TOOLCHAIN", f"{self.path}")
+
 
 class Builder(linux_shell.LinuxShell):
     """
