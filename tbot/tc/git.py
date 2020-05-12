@@ -195,7 +195,11 @@ class GitRepository(linux.Path[H]):
         self.git0("reset", mode.value, rev)
 
     def clean(
-        self, force: bool = True, untracked: bool = False, noignore: bool = False
+        self,
+        force: bool = True,
+        untracked: bool = False,
+        noignore: bool = False,
+        quiet: bool = True,
     ) -> None:
         """
         Call ``git clean``.
@@ -203,6 +207,7 @@ class GitRepository(linux.Path[H]):
         :param bool force: ``-f``
         :param bool untracked: ``-d``
         :param bool noignore: ``-x``
+        :param bool quiet: ``-q``
 
         Refer to the ``git-clean`` man-page for more info.
         """
@@ -214,6 +219,8 @@ class GitRepository(linux.Path[H]):
             options += "d"
         if noignore:
             options += "x"
+        if quiet:
+            options += "q"
 
         self.git0("clean", options if options != "-" else "")
 
