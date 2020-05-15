@@ -30,6 +30,7 @@ import logparser
 import requests
 import os
 import sys
+import json
 
 # pip3 install requests-toolbelt --user
 from requests_toolbelt import MultipartEncoder
@@ -73,6 +74,7 @@ def get_values() -> None:
     success = "False"
     soc = "unknown"
     splsize = "0"
+    images = []
     for ev in events:
         if ev.type[0] == "doc":
             if ev.type[1] == "tag":
@@ -95,15 +97,27 @@ def get_values() -> None:
                 if ev.data["tagid"] == "UBOOT_BUILD_DEFCONFIG":
                     defconfig = ev.data["tagval"]
                 if ev.data["tagid"] == "UBOOT_SPL_SIZE":
-                    splsize = ev.data["tagval"]
+                    val = ev.data["tagval"]
+                    if val != "0":
+                        val = val.split(":")
+                        name = val[0]
+                        sz = val[1]
+                        images.append({"name": name, "size": sz})
                 if ev.data["tagid"] == "UBOOT_UBOOT_SIZE":
-                    ubsize = ev.data["tagval"]
+                    val = ev.data["tagval"]
+                    val = val.split(":")
+                    name = val[0]
+                    sz = val[1]
+                    images.append({"name": name, "size": sz})
                 if ev.data["tagid"] == "UBOOT_NOTES":
                     content = ev.data["tagval"]
         if ev.type[0] == "tbot":
             if ev.type[1] == "end":
                 if ev.data["success"] is True:
                     success = "True"
+
+    if len(images) == 0:
+        raise RuntimeError("No U-Boot images found")
 
     try:
         fn = os.environ["TBOT_LOGFILE"]
@@ -125,8 +139,7 @@ def get_values() -> None:
             "boardname": boardname,
             "basecommit": basecommit,
             "defconfig": defconfig,
-            "splsize": splsize,
-            "ubsize": ubsize,
+            "images": json.dumps(images),
             "success": success,
             "content": content,
             "tbotlog": ("filename", open(fn2, "rb"), "text/plain"),
