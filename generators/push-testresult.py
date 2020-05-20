@@ -127,6 +127,10 @@ def get_values() -> None:
         fn2 = os.environ["TBOT_STDIO_LOGFILE"]
     except KeyError:
         raise RuntimeError("set environment variable TBOT_STDIO_LOGFILE")
+    try:
+        fn3 = os.environ["TBOT_SYSTEMMAP"]
+    except KeyError:
+        raise RuntimeError("set environment variable TBOT_SYSTEMMAP")
 
     m = MultipartEncoder(
         fields={
@@ -144,6 +148,7 @@ def get_values() -> None:
             "content": content,
             "tbotlog": ("filename", open(fn2, "rb"), "text/plain"),
             "tbotjson": ("filename", open(fn, "rb"), "text/plain"),
+            "systemmap": ("filename", open(fn3, "rb"), "text/plain"),
         }
     )
 
