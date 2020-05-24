@@ -211,5 +211,5 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
             use_multiplexing=p1.host.use_multiplexing,
             remote_copy=True,
         )
-   else:
+    else:
         raise NotImplementedError(f"Can't copy from {p1.host} to {p2.host}!")
