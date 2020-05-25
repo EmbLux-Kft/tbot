@@ -132,6 +132,8 @@ class GitRepository(linux.Path[H]):
         cur_com = self.git0("rev-parse", "origin/master")
         cur_com = cur_com.strip()
         log_event.doc_tag("GIT_CURRENT_COMMIT_ORIGIN", cur_com)
+        cur_desc = self.git0("describe", cur_com)
+        log_event.doc_tag("GIT_CURRENT_COMMIT_ORIGIN_DESCRIBE", cur_desc.strip())
 
     def git(
         self, *args: typing.Union[str, linux.Path[H], linux.special.Special]
