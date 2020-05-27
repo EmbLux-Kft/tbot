@@ -94,6 +94,8 @@ def get_values() -> None:
                     boardname = ev.data["tagval"]
                 if ev.data["tagid"] == "GIT_CURRENT_COMMIT_ORIGIN":
                     basecommit = ev.data["tagval"]
+                if ev.data["tagid"] == "GIT_CURRENT_COMMIT_ORIGIN_DESCRIBE":
+                    basecommit += ":" + ev.data["tagval"]
                 if ev.data["tagid"] == "UBOOT_BUILD_DEFCONFIG":
                     defconfig = ev.data["tagval"]
                 if ev.data["tagid"] == "UBOOT_SPL_SIZE":
