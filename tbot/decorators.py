@@ -318,6 +318,8 @@ def with_linux(tc: F_lnx) -> F_linux:
                 raise TypeError(
                     f"Argument to {tc!r} must either be a lab-host or a board linux (found {arg!r})"
                 )
+            else:
+                lh = tbot.selectable.labhost
 
             # Acquire Linux
             if arg is None or isinstance(arg, linux.Lab):
@@ -326,6 +328,7 @@ def with_linux(tc: F_lnx) -> F_linux:
             else:
                 lnx = cx.enter_context(arg)
 
+            tbot.selectable.labhost = lh
             return tc(lnx, *args, **kwargs)
 
     # Adjust annotation

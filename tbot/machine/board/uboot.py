@@ -21,7 +21,7 @@ import typing
 
 import tbot
 from .. import shell, machine, channel
-from ..linux import special
+from ..linux import special, util
 
 
 class UBootStartupEvent(tbot.log.EventIO):
@@ -138,6 +138,7 @@ def _hush_quote(s: str) -> str:
 
 ArgTypes = typing.Union[str, special.Special]
 
+Self = typing.TypeVar("Self", bound="UBootShell")
 
 class UBootShell(shell.Shell, UbootStartup):
     """
@@ -397,6 +398,58 @@ class UBootShell(shell.Shell, UbootStartup):
             raise Exception("Failed to reacquire U-Boot after interactive session!")
 
         tbot.log.message("Exiting interactive shell ...")
+
+    @contextlib.contextmanager
+    def run(
+        self: Self, *args: typing.Union[str, special.Special[Self]]
+    ) -> typing.Iterator[util.RunCommandProxy]:
+        def cmd_context(
+            proxy_ch: util.RunCommandProxy,
+        ) -> typing.Generator[str, None, typing.Tuple[int, str]]:
+            cmd = self.escape(*args)
+
+            with contextlib.ExitStack() as cx:
+                ev = cx.enter_context(tbot.log_event.command(self.name, cmd))
+                proxy_ch.sendline(cmd, read_back=True)
+                cx.enter_context(proxy_ch.with_stream(ev, show_prompt=False))
+
+                assert proxy_ch.prompt is not None, "prompt is missing!"
+
+                # During the context (before calling terminate), the prompt
+                # string may never appear in the command output.  If it does
+                # anyway, raise an Exception.
+                #
+                # The exception type is dynamically created here to capture
+                # some variables from the context.  This way, the context knows
+                # of an early exit happening and can behave differently because
+                # of it.
+
+                early_exit = False
+
+                class CommandEndedException(util.CommandEndedException):
+                    def __init__(self, string: bytes):
+                        nonlocal early_exit
+                        early_exit = True
+                        proxy_ch._pre_terminate()
+                        super().__init__(string)
+
+                    def __str__(self) -> str:
+                        return f"The interactive command {cmd!r} exited prematurely."
+
+                with proxy_ch.with_death_string(proxy_ch.prompt, CommandEndedException):
+                    yield cmd
+
+                output = ""
+                if not early_exit:
+                    output = proxy_ch.read_until_prompt()
+                ev.data["stdout"] = ev.getvalue()
+
+            proxy_ch.sendline("echo $?", read_back=True)
+            retcode = int(proxy_ch.read_until_prompt())
+
+            return (retcode, output)
+
+        yield from util.RunCommandProxy._ctx(self.ch, cmd_context)
 
     # Utilities ----- {{{
     _ram_base: int
