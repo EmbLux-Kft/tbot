@@ -1,6 +1,7 @@
 import abc
 import contextlib
 import typing
+import tbot
 from tbot.machine import machine
 from tbot.machine import linux
 from typing import List
@@ -38,11 +39,14 @@ class UsbSdpLoad(machine.Initializer):
                 p = self.host.toolsdir()
                 return p / "imx_usb_loader"
 
-
             def usb_loader_bins(self):
                 p = self.host.yocto_result_dir()
                 return [ p / "SPL.signed", p / "u-boot-ivt.img.signed"]
 
+    This class sets also a tbot flag "usbloader"
+
+    if passed to tbot, this class is active, if not passed
+    this class does nothing.
     """
 
     @abc.abstractmethod
@@ -74,6 +78,9 @@ class UsbSdpLoad(machine.Initializer):
 
     @contextlib.contextmanager
     def _init_machine(self) -> typing.Iterator:
+        if "usbloader" not in tbot.flags:
+            yield None
+
         imx = self.get_imx_usb_loader()
         bins = self.usb_loader_bins()
         for bina in bins:
@@ -98,3 +105,8 @@ class UsbSdpLoad(machine.Initializer):
                     )
 
         yield None
+
+
+FLAGS = {
+    "usbloader": "load SPL / U-Boot images with imx_usb_loader",
+}
