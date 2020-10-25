@@ -80,6 +80,14 @@ class PowerControl(machine.Initializer):
             self.poweron()
             yield None
         finally:
+            if "nopoweroff" in tbot.flags:
+                tbot.log.EventIO(
+                    ["board", "off", self.name],
+                    tbot.log.c("NO POWEROFF").bold + f" ({self.name})",
+                    verbosity=tbot.log.Verbosity.QUIET,
+                )
+                return
+
             tbot.log.EventIO(
                 ["board", "off", self.name],
                 tbot.log.c("POWEROFF").bold + f" ({self.name})",
@@ -118,3 +126,8 @@ class Connector(connector.Connector):
 
     def clone(self) -> typing.NoReturn:
         raise tbot.error.AbstractMethodError()
+
+
+FLAGS = {
+    "nopoweroff": "Do not power off board at the end",
+}
