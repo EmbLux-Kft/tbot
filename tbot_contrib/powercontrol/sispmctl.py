@@ -52,7 +52,7 @@ class SispmControl(board.PowerControl):
 
     def poweroff(self) -> None:
         if "nopoweroff" in tbot.flags:
-            tbot.log.message("Waiting a bit to let power settle down ...")
+            tbot.log.message("Do not power off ...")
         else:
             self.host.exec0(
                 "sispmctl", "-D", self.sispmctl_device, "-f", self.sispmctl_port
@@ -60,3 +60,8 @@ class SispmControl(board.PowerControl):
 
             tbot.log.message("Waiting a bit to let power settle down ...")
             time.sleep(2)
+
+
+FLAGS = {
+    "nopoweroff": "Do not power off board at the end",
+}
