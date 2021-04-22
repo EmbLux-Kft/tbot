@@ -26,7 +26,7 @@ H2 = typing.TypeVar("H2", bound=linux.LinuxShell)
 
 
 @tbot.testcase
-def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
+def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
     """
     Copy a file, possibly from one host to another.
 
@@ -36,7 +36,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
         Please read its documentation for more details.  The old name here is a
         compatibility alias.
     """
-    return linux.copy(p1, p2)
+    return linux.copy(p1, p2, remote_copy)
 
 
 _TOOL_CACHE: typing.Dict[linux.LinuxShell, typing.Dict[str, bool]] = {}

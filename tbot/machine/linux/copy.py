@@ -19,6 +19,7 @@ def _scp_copy(
     ssh_config: typing.List[str],
     authenticator: auth.Authenticator,
     use_multiplexing: bool,
+    remote_copy=False,
 ) -> None:
     local_host = local_path.host
 
@@ -60,6 +61,16 @@ def _scp_copy(
             authenticator._undefined_marker
         raise ValueError("Unknown authenticator {authenticator!r}")
 
+    if remote_copy:
+        rh = remote_path.host
+        local_host.exec0(
+            *scp_command,
+            f"{local_host.username}@{local_host.hostname}:{local_path._local_str()}",
+            f"{rh.username}@{rh.hostname}:{remote_path._local_str()}",
+        )
+
+        return
+
     if copy_to_remote:
         local_host.exec0(
             *scp_command,
@@ -74,7 +85,7 @@ def _scp_copy(
         )
 
 
-def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
+def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
     """
     Copy a file, possibly from one host to another.
 
@@ -92,6 +103,10 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
     * **ssh-machine** 🢥 **ssh-machine** (There is no guarantee that two remote hosts can
       connect to each other.  If you need this, transfer to the lab-host first
       and then to the other remote)
+
+      except you now that you can copy between two remote hosts, so pass
+      remote_copy=True
+
     * **lab-host** 🢥 **board-machine** (Transfers over serial are not (yet) implemented.
       To 'upload' files, connect to your target via ssh or use a tftp download)
 
@@ -120,7 +135,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
         p2_w1 = linux.Path(p1.host, p2)
         p1.host.exec0("cp", p1, p2_w1)
         return
-    elif isinstance(p1.host, connector.SSHConnector) and p1.host.host is p2.host:
+    elif isinstance(p1.host, connector.SSHConnector) and p1.host.host is p2.host and (remote_copy == False):
         # Copy from an SSH machine
         _scp_copy(
             local_path=p2,
@@ -182,5 +197,19 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
             authenticator=p1.host.authenticator,
             use_multiplexing=p1.host.use_multiplexing,
         )
-    else:
+    elif remote_copy:
+        _scp_copy(
+            local_path=p1,
+            remote_path=p2,
+            copy_to_remote=True,  # unused
+            username=p2.host.username,  # unused
+            hostname=p2.host.hostname,  # unused
+            ignore_hostkey=p1.host.ignore_hostkey,
+            port=p1.host.port,
+            ssh_config=p1.host.ssh_config,
+            authenticator=p1.host.authenticator,
+            use_multiplexing=p1.host.use_multiplexing,
+            remote_copy=True,
+        )
+   else:
         raise NotImplementedError(f"Can't copy from {p1.host} to {p2.host}!")
