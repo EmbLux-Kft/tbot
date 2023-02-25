@@ -98,6 +98,7 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
     """
     Keys to press as soon as autoboot prompt is detected.
     """
+    autoboot_iter: typing.Union[int] = 1
 
     @property
     @abc.abstractmethod
@@ -115,23 +116,28 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
             self.ch.add_death_string(d)
 
         if self.autoboot_prompt is not None:
-            with self.ch.with_stream(self._uboot_startup_event()):
-                timeout = None
-                if self.boot_timeout is not None:
-                    assert self._timeout_start is not None
-                    timeout = self.boot_timeout - (
-                        time.monotonic() - self._timeout_start
-                    )
+            i = 0
+            while i < self.autoboot_iter:
+                with self.ch.with_stream(self._uboot_startup_event()):
+                    timeout = None
+                    if self.boot_timeout is not None:
+                        assert self._timeout_start is not None
+                        timeout = self.boot_timeout - (
+                            time.monotonic() - self._timeout_start
+                        )
 
-                try:
-                    self.ch.read_until_prompt(
-                        prompt=self.autoboot_prompt, timeout=timeout
-                    )
-                except TimeoutError:
-                    raise TimeoutError(
-                        "U-Boot autoboot prompt did not show up in time"
-                    ) from None
-                self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+                    try:
+                        self.ch.read_until_prompt(
+                            prompt=self.autoboot_prompt, timeout=timeout
+                        )
+                    except TimeoutError:
+                        raise TimeoutError(
+                            "U-Boot autoboot prompt did not show up in time"
+                        ) from None
+                    i += 1
+                    if i == self.autoboot_iter:
+                        self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+
 
         yield None
 
