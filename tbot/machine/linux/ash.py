@@ -24,6 +24,8 @@ import tbot
 from .. import channel
 from . import linux_shell, util, special, path
 
+from tbot import log
+
 TBOT_PROMPT = b"TBOT-VEJPVC1QUk9NUFQK$ "
 
 Self = typing.TypeVar("Self", bound="Ash")
@@ -75,22 +77,22 @@ class Ash(linux_shell.LinuxShell):
                 + b"'",
             )
             self.ch.prompt = TBOT_PROMPT
-            self.ch.read_until_prompt()
+            self.ch.read_until_prompt_save()
 
             # Disable history
             self.ch.sendline("unset HISTFILE")
-            self.ch.read_until_prompt()
+            self.ch.read_until_prompt_save()
 
             # Disable line editing
             #
             # Not really possible on ash.  Instead, make the terminal really
             # wide and hope for the best ...
             self.ch.sendline("stty cols 1024")
-            self.ch.read_until_prompt()
+            self.ch.read_until_prompt_save()
 
             # Set secondary prompt to ""
             self.ch.sendline("PS2=''")
-            self.ch.read_until_prompt()
+            self.ch.read_until_prompt_save()
 
             # Do a sanity check to assert that shell interaction is working
             # exactly as expected
