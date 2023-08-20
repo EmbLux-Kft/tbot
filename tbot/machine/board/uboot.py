@@ -141,6 +141,100 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
 
         yield None
 
+class UBootAutobootInterceptSimple(machine.Initializer, UbootStartup):
+    """
+    Machine-initializer to intercept U-Boot autobooting.
+
+    similiar as UBootAutobootIntercept but UBootAutobootIntercept
+    has problems with bootdelay = 0 settings, as it is not fast
+    enough. This implementation simply sends the autobootkeys and
+    waits autoboot_timeout for U-Boot prompt. If no U-Boot prompt
+    found it sends again the autobootkeys. This loop breaks
+    only if boot_timeout is set.
+
+    Works reliable only with one autobootkey, as may U-Boot
+    starts receiving when this class sends already second byte...
+
+    **Example**:
+
+    .. code-block:: python
+
+        import re
+
+        class MyUBoot(
+            board.Connector,
+            board.UBootAutobootInterceptSimple,
+            board.UBootShell,
+        ):
+            autoboot_timeout = 0.05
+            autoboot_keys = " "
+    """
+
+    autoboot_keys: typing.Union[str, bytes] = "\r"
+    """
+    Keys to press as soon as autoboot prompt is detected.
+    """
+
+    autoboot_timeout: typing.Union[float] = 0.1
+    """
+    wait timeout for receiving U-Boot prompt after sending autobootkey
+    """
+
+    autoboot_iter: typing.Union[int] = 1
+
+    @property
+    @abc.abstractmethod
+    def get_death_strings(self) -> List[str]:
+        """
+        return a List of death strings, which are added to the channel
+        in _init_machine()
+        """
+        pass
+
+    @contextlib.contextmanager
+    def _init_machine(self) -> typing.Iterator:
+        ds = self.get_death_strings()
+        for d in ds:
+            self.ch.add_death_string(d)
+
+        if self.autoboot_prompt is not None:
+            i = 0
+            while i < self.autoboot_iter:
+                with self.ch.with_stream(self._uboot_startup_event()):
+                    self.ch.prompt = (
+                        self.prompt.encode("utf-8")
+                        if isinstance(self.prompt, str)
+                        else self.prompt
+                    )
+
+
+                    self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+
+                    loop = True
+                    while True:
+                        if self.boot_timeout is not None:
+                            assert self._timeout_start is not None
+
+                            if (time.monotonic() - self._timeout_start) > self.boot_timeout:
+                                raise TimeoutError("U-Boot did not reach shell in time")
+
+                        try:
+                            self.ch.read_until_prompt(timeout=self.autoboot_timeout)
+                            loop = False
+                            break
+                        except TimeoutError:
+                            self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+                            self.ch.sendintr()
+
+                    i += 1
+
+        try:
+            # wait 2 seconds for may remaining bytes
+            self.ch.read(1000, 2)
+        except:
+            pass
+
+        yield None
 
 _hush_find_unsafe = re.compile(r"[^\w@%+=:,./-]", re.ASCII).search
 
@@ -243,18 +337,6 @@ class UBootShell(shell.Shell, UbootStartup):
                 0x1C,  # FS   | File Separator
                 0x7F,  # DEL  | Delete
             ]
-
-            while True:
-                if self.boot_timeout is not None:
-                    assert self._timeout_start is not None
-                    if (time.monotonic() - self._timeout_start) > self.boot_timeout:
-                        raise TimeoutError("U-Boot did not reach shell in time")
-                try:
-                    self.ch.read_until_prompt(timeout=2)
-                    break
-                except TimeoutError:
-                    self.ch.sendintr()
-                    time.sleep(0.5)
 
         yield None
 

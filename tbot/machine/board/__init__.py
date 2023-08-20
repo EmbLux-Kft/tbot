@@ -2,7 +2,7 @@ import typing
 
 import tbot
 
-from .uboot import UBootShell, UBootAutobootIntercept  # isort: skip
+from .uboot import UBootShell, UBootAutobootIntercept, UBootAutobootInterceptSimple  # isort: skip
 from .board import PowerControl, Board, BoardMachineBase, Connector  # isort: skip
 from .linux import LinuxUbootConnector, LinuxBootLogin  # isort: skip
 from .linux import AskfirstInitializer  # isort: skip
@@ -21,6 +21,7 @@ __all__ = (
     "Raw",
     "Then",
     "UBootAutobootIntercept",
+    "UBootAutobootInterceptSimple",
     "UBootMachine",
     "UBootShell",
 )
