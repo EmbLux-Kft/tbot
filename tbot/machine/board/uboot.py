@@ -14,10 +14,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import abc
 import contextlib
 import re
 import time
 import typing
+from typing import List
 
 import tbot
 from .. import shell, machine, channel
@@ -97,8 +99,21 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
     Keys to press as soon as autoboot prompt is detected.
     """
 
+    @property
+    @abc.abstractmethod
+    def get_death_strings(self) -> List[str]:
+        """
+        return a List of death strings, which are added to the channel
+        in _init_machine()
+        """
+        pass
+
     @contextlib.contextmanager
     def _init_machine(self) -> typing.Iterator:
+        ds = self.get_death_strings()
+        for d in ds:
+            self.ch.add_death_string(d)
+
         if self.autoboot_prompt is not None:
             with self.ch.with_stream(self._uboot_startup_event()):
                 timeout = None
