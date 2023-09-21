@@ -216,15 +216,19 @@ class SSHConnector(connector.Connector):
                     f"ControlPath={multiplexing_dir.at_host(self.host)}/%C",
                 ]
 
-            with h.open_channel(
+            cmd_str = h.escape(
                 *cmd,
                 *hk_disable,
                 *multiplexing,
                 *["-p", str(self.port)],
                 *[arg for opt in self.ssh_config for arg in ["-o", opt]],
                 f"{self.username}@{self.hostname}",
-            ) as ch:
-                yield ch
+            )
+
+            with tbot.log_event.command(h.name, cmd_str):
+                h.ch.sendline(cmd_str + "; exit", read_back=True)
+
+            yield h.ch.take()
 
     def clone(self) -> "SSHConnector":
         """Clone this machine."""
