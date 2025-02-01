@@ -130,12 +130,29 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
 
     .. versionadded:: 0.10.2
     """
+    try:
+        p1isParamiko = isinstance(p1.host, connector.ParamikoConnector)
+    except:
+        p1isParamiko = False
+    try:
+        p1isSSH = isinstance(p1.host, connector.SSHConnector)
+    except:
+        p1isSSH = False
+    try:
+        p2isParamiko = isinstance(p2.host, connector.ParamikoConnector)
+    except:
+        p2isParamiko = False
+    try:
+        p2isSSH = isinstance(p2.host, connector.SSHConnector)
+    except:
+        p2isSSH = False
+
     if isinstance(p1.host, p2.host.__class__) or isinstance(p2.host, p1.host.__class__):
         # Both paths are on the same host
         p2_w1 = linux.Path(p1.host, p2)
         p1.host.exec0("cp", p1, p2_w1)
         return
-    elif isinstance(p1.host, connector.SSHConnector) and p1.host.host is p2.host and (remote_copy == False):
+    elif p1isSSH and p1.host.host is p2.host and (remote_copy == False):
         # Copy from an SSH machine
         _scp_copy(
             local_path=p2,
@@ -149,7 +166,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
             authenticator=p1.host.authenticator,
             use_multiplexing=p1.host.use_multiplexing,
         )
-    elif isinstance(p2.host, connector.SSHConnector) and p2.host.host is p1.host:
+    elif p2isSSH and p2.host.host is p1.host:
         # Copy to an SSH machine
         _scp_copy(
             local_path=p1,
@@ -163,10 +180,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
             authenticator=p2.host.authenticator,
             use_multiplexing=p2.host.use_multiplexing,
         )
-    elif isinstance(p1.host, connector.SubprocessConnector) and (
-        isinstance(p2.host, connector.ParamikoConnector)
-        or isinstance(p2.host, connector.SSHConnector)
-    ):
+    elif isinstance(p1.host, connector.SubprocessConnector) and (p2isParamiko or p2isSSH):
         # Copy from local to ssh labhost
         _scp_copy(
             local_path=p1,
@@ -180,10 +194,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2], remote_copy=False) -> None:
             authenticator=p2.host.authenticator,
             use_multiplexing=p2.host.use_multiplexing,
         )
-    elif isinstance(p2.host, connector.SubprocessConnector) and (
-        isinstance(p1.host, connector.ParamikoConnector)
-        or isinstance(p1.host, connector.SSHConnector)
-    ):
+    elif isinstance(p2.host, connector.SubprocessConnector) and (p1isParamiko or p1isSSH):
         # Copy to local from ssh labhost
         _scp_copy(
             local_path=p2,
