@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import select
 import time
 from typing import List, Optional, Tuple, TypeVar
@@ -46,6 +47,12 @@ sleep infinity
 #!/usr/bin/env bash
 
 echo "RESET" >{fifo_commands}
+""",
+    # Hook which test/py uses to release the board
+    "u-boot-test-release": """\
+#!/usr/bin/env bash
+
+echo "RELEASE" >{fifo_commands}
 """,
     # Hook which test/py calls to flash U-Boot (unused here)
     "u-boot-test-flash": """\
@@ -137,15 +144,95 @@ def setup_testhooks(
 
     return (chan_console, chan_command)
 
+def testpy_loop(
+    cx,
+    lh,
+    bh,
+    chan_testpy,
+    chan_console,
+    chan_command,
+    uboot_sources: linux.Path[BH],
+    uboot_builddir: Optional[linux.Path[BH]],
+    ret: str,
+) -> str:
+    """
+    """
+    with tbot.ctx.request(tbot.role.BoardUBoot, reset=True) as ub:
+        chan_uboot = ub.ch
+
+        if ret == "start":
+            # test/py needs here to pass the readden U-Boot version :-(
+            ubversion = None
+            p = re.compile('(U-Boot \\d{4}\\.\\d{2}[^\r\n]*\\))')
+            for l in ub.bootlog.split("\n"):
+                m = p.match(l)
+                if m:
+                    ubversion = m.group().strip()
+
+            if ubversion == None:
+                raise RuntimerError("Could not detect U-Boot version")
+
+            os.write(chan_console.fileno(), bytes("{lab mode on}\n", 'utf-8'))
+            os.write(chan_console.fileno(), bytes(f"{{lab ready in 0s: {ubversion}}}\n", 'utf-8'))
+
+        # We have to deal with incoming data on any of the following channels.
+        # The comments denote what needs to be done for each channel:
+        readfds = [
+            chan_console,  # Send data to U-Boot
+            chan_uboot,  # Send data to chan_console (test/py)
+            chan_command,  # Powercycle the board
+            chan_testpy,  # Read data so the log-event picks it up
+        ]
+
+        try:
+            while True:
+                r, _, _ = select.select(readfds, [], [])
+
+                if chan_command in r:
+                    # Powercycle the board
+                    msg = chan_command.read()
+                    if msg[:3] == b"RES":
+                        # tbot handles a power off / on
+                        return "reset"
+                    elif msg[:3] == b"REL":
+                        return "release"
+                    else:
+                        raise Exception(f"Got unknown command {msg!r}!")
+                if chan_console in r:
+                    # Send data to U-Boot
+                    data = os.read(chan_console.fileno(), 4096)
+                    os.write(chan_uboot.fileno(), data)
+                    #print("-> console ", data)
+                if chan_uboot in r:
+                    # Send data to chan_console (test/py)
+                    data = os.read(chan_uboot.fileno(), 4096)
+                    os.write(chan_console.fileno(), data)
+                    #print("-> testpy ", data)
+                if chan_testpy in r:
+                    # Read data so the log-event picks it up.  If a
+                    # DeathStringException occurs here, test/py finished and we
+                    # need to properly terminate the LinuxShell.run() context.
+                    try:
+                        chan_testpy.read()
+                    except linux.CommandEndedException:
+                        chan_testpy.terminate0()
+                        break
+        except KeyboardInterrupt:
+            # on keyboard interrupt, try to abort test/py
+            chan_testpy.sendcontrol("C")
+            chan_testpy.terminate()
+            raise
+
+    return "end"
 
 @tbot.named_testcase("uboot_testpy")
 def testpy(
     uboot_sources: linux.Path[BH],
     *,
-    board: Optional[tbot.role.Board] = None,
     uboot: Optional[tbot.role.BoardUBoot] = None,
     boardenv: Optional[str] = None,
     testpy_args: Optional[List[str]] = None,
+    uboot_builddir: Optional[linux.Path[BH]] = None,
 ) -> None:
     """
     Run U-Boot's test/py test-framework against a tbot-machine.
@@ -241,8 +328,8 @@ def testpy(
 
     .. versionadded:: 0.9.5
     """
-    if board is not None:
-        assert uboot is not None, "when passing `board`, `uboot` is also required!"
+    if uboot_builddir is None:
+        uboot_builddir = uboot_sources
 
     with tbot.ctx() as cx:
         bh = uboot_sources.host
@@ -264,28 +351,11 @@ def testpy(
         chan_console, chan_command = setup_testhooks(bh, m_console, m_command)
 
         assert (
-            uboot_sources / ".config"
+            uboot_builddir / ".config"
         ).exists(), "u-boot does not seem configured (.config is missing)!"
         assert (
-            uboot_sources / "include" / "autoconf.mk"
+            uboot_builddir / "include" / "autoconf.mk"
         ).exists(), "include/autoconf.mk is missing!"
-
-        if board is not None:
-            b = board
-        else:
-            b = cx.request(tbot.role.Board, reset=True)
-
-        assert isinstance(
-            b, machine.board.PowerControl
-        ), "board does not support power-control!"
-
-        if board is not None:
-            assert uboot is not None  # for type checking
-            ub = uboot
-        else:
-            ub = cx.request(tbot.role.BoardUBoot, exclusive=True)
-
-        chan_uboot = ub.ch
 
         boardtype = "unknown"
         if boardenv is not None:
@@ -304,56 +374,15 @@ def testpy(
             bh.run(
                 "./test/py/test.py",
                 "--build-dir",
-                ".",
+                "." if uboot_builddir == uboot_sources else uboot_builddir,
                 "--board-type",
                 boardtype,
                 *(testpy_args or []),
             )
         )
 
-        # We have to deal with incoming data on any of the following channels.
-        # The comments denote what needs to be done for each channel:
-        readfds = [
-            chan_console,  # Send data to U-Boot
-            chan_uboot,  # Send data to chan_console (test/py)
-            chan_command,  # Powercycle the board
-            chan_testpy,  # Read data so the log-event picks it up
-        ]
+        ret = "start"
+        while ret == "start" or ret == "loop" or ret == "reset":
+            ret = testpy_loop(cx, lh, bh, chan_testpy, chan_console, chan_command, uboot_sources, uboot_builddir, ret)
 
-        try:
-            while True:
-                r, _, _ = select.select(readfds, [], [])
-
-                if chan_console in r:
-                    # Send data to U-Boot
-                    data = os.read(chan_console.fileno(), 4096)
-                    os.write(chan_uboot.fileno(), data)
-                if chan_uboot in r:
-                    # Send data to chan_console (test/py)
-                    data = os.read(chan_uboot.fileno(), 4096)
-                    os.write(chan_console.fileno(), data)
-                if chan_command in r:
-                    # Powercycle the board
-                    msg = chan_command.read()
-
-                    if msg[:2] == b"RE":
-                        b.poweroff()
-                        if b.powercycle_delay > 0:
-                            time.sleep(b.powercycle_delay)
-                        b.poweron()
-                    else:
-                        raise Exception(f"Got unknown command {msg!r}!")
-                if chan_testpy in r:
-                    # Read data so the log-event picks it up.  If a
-                    # DeathStringException occurs here, test/py finished and we
-                    # need to properly terminate the LinuxShell.run() context.
-                    try:
-                        chan_testpy.read()
-                    except linux.CommandEndedException:
-                        chan_testpy.terminate0()
-                        break
-        except KeyboardInterrupt:
-            # on keyboard interrupt, try to abort test/py
-            chan_testpy.sendcontrol("C")
-            chan_testpy.terminate()
-            raise
+        chan_testpy.terminate()
