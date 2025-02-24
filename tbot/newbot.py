@@ -266,11 +266,11 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         trace = traceback.format_exc(limit=-6)
         tbot.log_event.exception(e.__class__.__name__, trace)
         tbot.log_event.tbot_end(False)
-        sys.exit(1)
+        raise e
     except KeyboardInterrupt:
         tbot.log_event.exception("KeyboardInterrupt", "Test run manually aborted.")
         tbot.log_event.tbot_end(False)
-        sys.exit(130)
+        raise 130
     except SystemExit as e:
         tbot.log.message("SystemExit triggered.")
         tbot.log_event.tbot_end(e.code in (None, 0))
@@ -280,4 +280,4 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv)
+    sys.exit(main(sys.argv))
