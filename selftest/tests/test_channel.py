@@ -113,6 +113,42 @@ def test_unbounded_pattern(ch: channel.Channel) -> None:
         ch.read_until_prompt(prompt=ub_pat, timeout=1)
 
 
+def test_read_until_prompt_bounded_pattern(ch: channel.Channel) -> None:
+    """
+    Regression test for read_until_prompt() with a BoundedPattern prompt:
+    the match must still be found correctly (at the right position) even
+    when a lot of unrelated output precedes the actual prompt.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("for i in $(seq 1 200); do echo line $i; done", read_back=True)
+    out = ch.read_until_prompt(prompt=prompt)
+    assert out.rstrip("\n").endswith("line 200")
+
+
+def test_read_until_prompt_save_success(ch: channel.Channel) -> None:
+    """
+    read_until_prompt_save() must return the captured text on success.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("echo prompt-save-worked", read_back=True)
+    out = ch.read_until_prompt_save(prompt=prompt)
+    assert "prompt-save-worked" in out
+
+
+def test_read_until_prompt_save_timeout(ch: channel.Channel) -> None:
+    """
+    read_until_prompt_save() must poll/nudge and eventually raise a
+    TimeoutError if no prompt ever shows up within the overall timeout.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("sleep 10", read_back=True)
+    with pytest.raises(TimeoutError):
+        ch.read_until_prompt_save(prompt=prompt, timeout=1, poll_timeout=0.3)
+
+
 def test_blacklist(ch: channel.Channel) -> None:
     """
     Test whether blacklisted characters are properly caught.
