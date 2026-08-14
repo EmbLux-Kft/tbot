@@ -966,7 +966,16 @@ class Channel(typing.ContextManager):
                             .replace("\n\r", "\n")
                         )
                 elif isinstance(self.prompt, BoundedPattern):
-                    match = self.prompt.pattern.search(buf)
+                    # The pattern is anchored to match only at the end of
+                    # the buffer (with_prompt() appends a "$"), and its
+                    # maximum match width is bounded (len(self.prompt)).
+                    # So any match can only start within the last
+                    # len(self.prompt) bytes -- searching from further
+                    # back can never succeed and just wastes time
+                    # rescanning the whole (growing) buffer on every
+                    # chunk.
+                    start = max(0, len(buf) - len(self.prompt))
+                    match = self.prompt.pattern.search(buf, start)
                     if match is not None:
                         return (
                             buf[: match.span()[0]]
