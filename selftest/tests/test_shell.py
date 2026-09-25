@@ -327,3 +327,15 @@ def test_safe_init_prompt(tbot_context: tbot.Context, monkeypatch: Any) -> None:
         with SafeBash(lh) as bs:
             assert bs.exec0("echo", "safe") == "safe\n"
         assert calls != []
+
+
+def test_with_sshpass_env(any_linux_shell: AnyLinuxShell) -> None:
+    with any_linux_shell() as linux_shell:
+        password = "pass word 'quoted' \"too\" $HOME"
+        verbosity = tbot.log.VERBOSITY
+        auth = linux.auth.PasswordAuthenticator(password)
+        with auth.with_sshpass_env(linux_shell) as sh:
+            assert sh.env("SSHPASS") == password
+        assert tbot.log.VERBOSITY == verbosity
+        # SSHPASS ends with the subshell
+        assert not linux_shell.test("printenv", "SSHPASS")
