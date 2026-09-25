@@ -55,16 +55,24 @@ def _scp_copy(
             authenticator.get_key_for_host(local_host),
         ]
     elif isinstance(authenticator, auth.PasswordAuthenticator):
-        scp_command = ["sshpass", "-p", authenticator.password] + scp_command
+        scp_command = ["sshpass", "-e"] + scp_command
     else:
         if typing.TYPE_CHECKING:
             authenticator._undefined_marker
         raise ValueError("Unknown authenticator {authenticator!r}")
 
+    def run_scp(*args: typing.Any) -> None:
+        if isinstance(authenticator, auth.PasswordAuthenticator):
+            # SSHPASS only lives in this subshell
+            with local_host.subshell():
+                authenticator.export_sshpass(local_host)
+                local_host.exec0(*scp_command, *args)
+        else:
+            local_host.exec0(*scp_command, *args)
+
     if remote_copy:
         rh = remote_path.host
-        local_host.exec0(
-            *scp_command,
+        run_scp(
             f"{local_host.username}@{local_host.hostname}:{local_path._local_str()}",
             f"{rh.username}@{rh.hostname}:{remote_path._local_str()}",
         )
@@ -72,14 +80,12 @@ def _scp_copy(
         return
 
     if copy_to_remote:
-        local_host.exec0(
-            *scp_command,
+        run_scp(
             local_path,
             f"{username}@{hostname}:{remote_path.at_host(remote_path.host)}",
         )
     else:
-        local_host.exec0(
-            *scp_command,
+        run_scp(
             f"{username}@{hostname}:{remote_path.at_host(remote_path.host)}",
             local_path,
         )
