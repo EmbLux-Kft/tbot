@@ -60,17 +60,7 @@ class SubprocessChannelIO(channel.ChannelIO):
         if self.pty_master not in w:
             raise TimeoutError("write timeout exceeded")
 
-        chunk_delay = 0.01
-        chunk_size = 8
-
-        # Patch the `write()` method to send bytes slowly, with delays.
-        bw = 0
-        bytes_written = 0
-        for chunk in (buf[i : i + chunk_size] for i in range(0, len(buf), chunk_size)):
-            bw = os.write(self.pty_master, chunk)
-            bytes_written += bw
-            time.sleep(chunk_delay)
-
+        bytes_written = os.write(self.pty_master, buf)
         if bytes_written == 0:
             raise tbot.error.ChannelClosedError
         return bytes_written
@@ -184,3 +174,8 @@ Waiting for {wait_time:.1f} more seconds..."""
 class SubprocessChannel(channel.Channel):
     def __init__(self) -> None:
         super().__init__(SubprocessChannelIO())
+        # Some USB serial adapters drop characters when they get a whole
+        # line at once, so send in small chunks by default.  A connector
+        # can change both values on the channel it opens.
+        self.slow_send_delay = 0.01
+        self.slow_send_chunksize = 8
