@@ -1,6 +1,12 @@
 # Changelog
 
 ## [Unreleased]
+### Added
+- tbot logs its start as an event `["tbot", "begin"]`, with the wall-clock
+  time of the start and the commandline, starting with the program Python
+  runs, so that a JSON log
+  (`--json-log-stream`) tells when and how the run was started.  The
+  console output stays `tbot starting ...`.
 
 
 ## [0.10.10] - 2025-11-25
