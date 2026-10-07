@@ -245,7 +245,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         tbot.log.Verbosity.STDOUT + args.verbosity - args.quiet
     )
 
-    tbot.log_event.tbot_start()
+    tbot.log_event.tbot_start(sys.argv[1:] if argv is None else argv)
 
     # Initialize tbot context with our settings
     tbot.ctx = tbot.Context(add_defaults=True, keep_alive=args.keep_alive)

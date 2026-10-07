@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import sys
 import time
 import typing
 
@@ -114,8 +115,33 @@ def command(mach: str, cmd: str) -> log.EventIO:
     return ev
 
 
-def tbot_start() -> None:
-    print(log.c("tbot").yellow.bold + " starting ...")
+def tbot_start(argv: typing.Optional[typing.Sequence[str]] = None) -> None:
+    """
+    Log tbot's start.
+
+    Prints "tbot starting ..." as before; the log file gets an event
+    ``["tbot", "begin"]`` with the wall-clock time of the start and the
+    commandline, as the times of all events count from the start.
+
+    The commandline starts with the program Python runs, the file of the
+    ``__main__`` module, as a starter script may rewrite ``sys.argv``;
+    ``sys.argv[0]`` only when there is no such file.
+
+    :param argv: The commandline arguments tbot was started with, default
+        ``sys.argv[1:]``.
+
+    .. versionchanged:: UNRELEASED
+
+        Logged as an event.
+    """
+    prog = getattr(sys.modules.get("__main__"), "__file__", None) or sys.argv[0]
+    log.EventIO(
+        ["tbot", "begin"],
+        log.c("tbot").yellow.bold + " starting ...",
+        verbosity=log.Verbosity.QUIET,
+        date=time.strftime("%Y-%m-%d %H:%M:%S"),
+        argv=[prog] + list(sys.argv[1:] if argv is None else argv),
+    )
     log.NESTING += 1
 
 
