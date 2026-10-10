@@ -8,6 +8,14 @@
   (`--json-log-stream`) tells when and how the run was started.  The
   console output stays `tbot starting ...`.
 
+### Fixed
+- `linux.Bash` and `linux.Ash` failed with `UncleanShellError` when the
+  remote shell had prompt hooks that print around every command, such as
+  systemd's `osc-context` profile (OSC 3008 escape sequences via a
+  `PROMPT_COMMAND` array entry and `PS0`).  tbot now unsets
+  `PROMPT_COMMAND` and clears `PS0` instead of only assigning
+  `PROMPT_COMMAND=''`.
+
 
 ## [0.10.10] - 2025-11-25
 ### Added
