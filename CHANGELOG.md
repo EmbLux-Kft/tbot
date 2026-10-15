@@ -7,6 +7,12 @@
   runs, so that a JSON log
   (`--json-log-stream`) tells when and how the run was started.  The
   console output stays `tbot starting ...`.
+- `LinuxShell.cmd_get_version(cmd, autoinstall=False, refresh=False)` finds
+  out which implementation and version a command has on a machine
+  (`busybox:1.37.0`, `procps-ng:4.0.6`, `notfound`, ...), once per machine,
+  and returns a `CmdVersion`.  `cmd_versions_set()` presets the answers,
+  e.g. from a configuration, and a machine class can override
+  `install_package()` for `autoinstall=True`.
 
 ### Fixed
 - `linux.Bash` and `linux.Ash` failed with `UncleanShellError` when the
