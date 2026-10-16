@@ -173,7 +173,8 @@ class LinuxShell(shell.Shell):
         taken from :py:meth:`cmd_versions_set`; later calls return the same,
         unless ``refresh=True``.
 
-        - ``command -v`` finds the command; ``notfound`` if there is none.
+        - ``command -v`` in a ``sh -c`` finds the command, past aliases of
+          the login shell; ``notfound`` if there is none.
           With ``autoinstall=True`` :py:meth:`install_package` is tried
           first, and the command looked for again.
         - A command that resolves (``readlink -f``) to busybox is
@@ -213,7 +214,9 @@ class LinuxShell(shell.Shell):
         return version
 
     def _cmd_find_version(self: Self, cmd: str) -> CmdVersion:
-        ret, out = self.exec("command", "-v", cmd)
+        # in a shell of its own, which has none of the aliases of the login
+        # shell; "command -v" prints an alias as its definition, not the path
+        ret, out = self.exec("sh", "-c", 'command -v "$1"', "sh", cmd)
         lines = out.strip().splitlines()
         where = lines[-1].strip() if ret == 0 and lines else ""
         if not where:

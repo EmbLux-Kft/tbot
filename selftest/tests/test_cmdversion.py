@@ -1,6 +1,7 @@
 import pytest
 
 import tbot
+from tbot.machine import linux
 from tbot.machine.linux import cmdversion
 from tbot.machine.linux.cmdversion import CmdVersion
 
@@ -140,6 +141,27 @@ def test_cmd_get_version_probes_in_order(tbot_context: tbot.Context) -> None:
             lo.env("PATH", path)
             lo.exec0("rm", "-rf", d)
         assert v == "procps-ng:3.3.16"
+
+
+def test_cmd_get_version_alias(tbot_context: tbot.Context) -> None:
+    """an alias of the login shell does not hide the program"""
+    with tbot_context.request(testmachines.Localhost) as lo:
+        d = lo.workdir / "cmdversion-test"
+        lo.exec0("rm", "-rf", d)
+        lo.exec0("mkdir", "-p", d)
+        (d / "tbot-aliased").write_text("#!/bin/sh\necho 'tbot-aliased 1.0'\n")
+        lo.exec0("chmod", "+x", d / "tbot-aliased")
+        path = lo.env("PATH")
+        lo.env("PATH", f"{d._local_str()}:{path}")
+        lo.exec0(linux.Raw("alias tbot-aliased='tbot-aliased --color=auto'"))
+        try:
+            v = lo.cmd_get_version("tbot-aliased", refresh=True)
+        finally:
+            lo.exec0(linux.Raw("unalias tbot-aliased"))
+            lo.env("PATH", path)
+            lo.exec0("rm", "-rf", d)
+        assert v == "full:unknown"
+        assert v.path == f"{d._local_str()}/tbot-aliased"
 
 
 def test_cmd_get_version_once(tbot_context: tbot.Context) -> None:
