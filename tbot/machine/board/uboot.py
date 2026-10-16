@@ -341,6 +341,22 @@ class UBootShell(shell.Shell, UbootStartup):
 
         yield None
 
+    def _sendline_read_echo(self, ch: channel.Channel, cmd: str) -> None:
+        """
+        Send a command line to U-Boot and read back its echo.
+
+        U-Boot echoes the Enter key as ``"\\r\\n"`` when it is built with
+        ``CONFIG_CMDLINE_EDITING``.  Without it, the simple readline of
+        ``common/cli_readline.c`` answers with ``puts("\\r\\n")`` and the
+        serial uclass puts a ``\\r`` in front of every ``\\n``, so the echo
+        is ``"\\r\\r\\n"``.  Read back the command by its length and the
+        echo of the Enter key up to the newline, so that no part of the echo
+        is left in front of the output of the command.
+        """
+        ch.send(cmd, read_back=True)
+        ch.sendline()
+        ch.readline(lineending="\n")
+
     def escape(self, *args: ArgTypes) -> str:
         """Escape a string so it can be used safely on the U-Boot command-line."""
         string_args = []
@@ -389,7 +405,7 @@ class UBootShell(shell.Shell, UbootStartup):
             override_prompt = None
 
         with tbot.log_event.command(self.name, cmd) as ev:
-            self.ch.sendline(cmd, read_back=True)
+            self._sendline_read_echo(self.ch, cmd)
             with self.ch.with_prompt(override_prompt):
                 with self.ch.with_stream(ev, show_prompt=False):
                     out = self.ch.read_until_prompt(prompt=override_prompt)
@@ -399,7 +415,7 @@ class UBootShell(shell.Shell, UbootStartup):
                         out += "\n"
             ev.data["stdout"] = out
 
-            self.ch.sendline("echo $?", read_back=True)
+            self._sendline_read_echo(self.ch, "echo $?")
             retcode_str = self.ch.read_until_prompt()
             try:
                 retcode = int(retcode_str)
@@ -498,7 +514,7 @@ class UBootShell(shell.Shell, UbootStartup):
         cmd = self.escape(*args)
 
         with tbot.log_event.command(self.name, cmd):
-            self.ch.sendline(cmd, read_back=True)
+            self._sendline_read_echo(self.ch, cmd)
 
         return self.ch.take()
 
@@ -539,7 +555,7 @@ class UBootShell(shell.Shell, UbootStartup):
 
             with contextlib.ExitStack() as cx:
                 ev = cx.enter_context(tbot.log_event.command(self.name, cmd))
-                proxy_ch.sendline(cmd, read_back=True)
+                self._sendline_read_echo(proxy_ch, cmd)
                 cx.enter_context(proxy_ch.with_stream(ev, show_prompt=False))
 
                 assert proxy_ch.prompt is not None, "prompt is missing!"
@@ -573,7 +589,7 @@ class UBootShell(shell.Shell, UbootStartup):
                     output = proxy_ch.read_until_prompt()
                 ev.data["stdout"] = ev.getvalue()
 
-            proxy_ch.sendline("echo $?", read_back=True)
+            self._sendline_read_echo(proxy_ch, "echo $?")
             retcode = int(proxy_ch.read_until_prompt())
 
             return (retcode, output)

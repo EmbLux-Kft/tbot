@@ -25,6 +25,10 @@
   `get_death_strings()` as an abstract property, so a U-Boot machine
   without an implementation of its own could not be instantiated.  It is
   now a method that returns no death strings.
+- `UBootShell` left a newline in front of the output of every command on
+  a U-Boot built without `CONFIG_CMDLINE_EDITING`, which echoes the Enter
+  key as `"\r\r\n"`, so `ub.env()` returned `"=<value>"`.  tbot now reads
+  the echo of the Enter key up to the newline.
 
 
 ## [0.10.10] - 2025-11-25
