@@ -21,6 +21,10 @@
   `PROMPT_COMMAND` array entry and `PS0`).  tbot now unsets
   `PROMPT_COMMAND` and clears `PS0` instead of only assigning
   `PROMPT_COMMAND=''`.
+- `UBootAutobootIntercept` and `UBootAutobootInterceptSimple` declared
+  `get_death_strings()` as an abstract property, so a U-Boot machine
+  without an implementation of its own could not be instantiated.  It is
+  now a method that returns no death strings.
 
 
 ## [0.10.10] - 2025-11-25

@@ -14,7 +14,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import abc
 import contextlib
 import re
 import time
@@ -100,14 +99,15 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
     """
     autoboot_iter: typing.Union[int] = 1
 
-    @property
-    @abc.abstractmethod
     def get_death_strings(self) -> List[str]:
         """
         return a List of death strings, which are added to the channel
         in _init_machine()
+
+        None by default; a board class overrides it, e.g. to stop on a
+        kernel panic.
         """
-        pass
+        return []
 
     @contextlib.contextmanager
     def _init_machine(self) -> typing.Iterator:
@@ -182,14 +182,15 @@ class UBootAutobootInterceptSimple(machine.Initializer, UbootStartup):
 
     autoboot_iter: typing.Union[int] = 1
 
-    @property
-    @abc.abstractmethod
     def get_death_strings(self) -> List[str]:
         """
         return a List of death strings, which are added to the channel
         in _init_machine()
+
+        None by default; a board class overrides it, e.g. to stop on a
+        kernel panic.
         """
-        pass
+        return []
 
     @contextlib.contextmanager
     def _init_machine(self) -> typing.Iterator:
