@@ -594,7 +594,9 @@ class UBootShell(shell.Shell, UbootStartup):
 
             return (retcode, output)
 
-        yield from util.RunCommandProxy._ctx(self.ch, cmd_context)
+        yield from util.RunCommandProxy._ctx(
+            channel=self.ch, context=cmd_context, host=self, args=args
+        )
 
     # Utilities ----- {{{
     _ram_base: int

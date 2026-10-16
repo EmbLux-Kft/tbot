@@ -29,6 +29,9 @@
   a U-Boot built without `CONFIG_CMDLINE_EDITING`, which echoes the Enter
   key as `"\r\r\n"`, so `ub.env()` returned `"=<value>"`.  tbot now reads
   the echo of the Enter key up to the newline.
+- `UBootShell.run()` failed with `TypeError: _ctx() takes 0 positional
+  arguments but 2 were given`, because the arguments of
+  `RunCommandProxy._ctx()` are keyword only.
 
 
 ## [0.10.10] - 2025-11-25
