@@ -13,6 +13,12 @@
   and returns a `CmdVersion`.  `cmd_versions_set()` presets the answers,
   e.g. from a configuration, and a machine class can override
   `install_package()` for `autoinstall=True`.
+- `newbot` passes parameters to testcases, as
+  `module.function:NAME=VALUE` for one testcase and with
+  `-p NAME=VALUE` (`--param`) for every testcase that has the parameter.
+  Values follow the annotation of the parameter (`str` stays a string,
+  otherwise a Python literal or a string) and are never evaluated as code.
+  All parameters are checked before the first testcase runs.
 
 ### Fixed
 - `linux.Bash` and `linux.Ash` failed with `UncleanShellError` when the

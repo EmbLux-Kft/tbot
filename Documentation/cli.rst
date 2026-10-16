@@ -32,13 +32,16 @@ document here serves as a reference documentation.
    usage: tbot [options] [testcases ...]
 
    positional arguments:
-     testcase              testcases that should be run.
+     testcase              testcase that should be run, as module.function[:NAME=VALUE...]
 
    options:
      -h, --help            show this help message and exit
      -C WORKDIR            use WORKDIR as working directory instead of the current directory.
      -c CONFIG, --config CONFIG
      -f FLAG               set a user defined flag to change testcase behaviour
+     -p NAME=VALUE, --param NAME=VALUE
+                           pass a parameter to every testcase that has it; VALUE is a Python
+                           literal or else a string (per testcase: module.function:NAME=VALUE)
      -k, --keep-alive      keep machines alive for later tests to reacquire them
      -v                    increase the verbosity
      -q                    decrease the verbosity
@@ -129,6 +132,53 @@ request a reset.  This way, it will work both with and without ``-k``.
 
 You can read more about this in the :ref:`context` documentation.
 
+.. _cli-params:
+
+Testcase Parameters
+-------------------
+Testcases can take parameters from the command line, in two ways:
+
+.. code-block:: shell-session
+
+   $ newbot -c config.my_config tc.net.ping:host=10.0.0.1:count=3 tc.net.ping:host=10.0.0.2
+   $ newbot -c config.my_config -p count=3 tc.net.ping tc.net.iperf
+
+``module.function:NAME=VALUE`` passes a parameter to this one testcase.
+Several parameters follow each other, each starting with ``:``.  A new
+parameter starts at a ``:`` followed by ``NAME=``, so a value may contain
+colons (``url=http://host:8080/x``), but not a ``:`` followed by something
+that looks like ``NAME=``.  A name the testcase function has no parameter
+for is an error.
+
+``-p NAME=VALUE`` (``--param``) passes a parameter to every testcase of the
+run that has it, with a warning for the others.  A ``-p`` parameter that no
+testcase has is an error.  A parameter given for a testcase wins over the
+same one given with ``-p``.
+
+``newbot`` checks the parameters of all testcases before the first one
+runs, so a typo is reported before anything happens on a machine.
+
+The type of a value follows the annotation of the parameter:
+
+- A parameter annotated as ``str`` gets the value as it is, so
+  ``host=1234`` gives ``"1234"``.  The same holds for a ``Union``
+  containing ``str`` (like ``Optional[str]``), except that ``None`` gives
+  ``None``.
+- For all other parameters the value is read as a Python literal (``42``,
+  ``1.5``, ``True``, ``None``, ``"text"``, ``[1, 2]``, ``{"a": 1}``), and a
+  value that is no literal stays a string.  A parameter annotated as
+  ``bool``, ``int`` or ``float`` must get a value of that type (an ``int``
+  is fine for a ``float``).
+
+Values are never run as Python code (the old ``tbot`` CLI passed them to
+``eval()``), so a front end may build the command line from user input.
+
+.. code-block:: python
+
+   @tbot.testcase
+   def ping(host: str = "localhost", count: int = 1) -> None:
+       ...
+
 ``-v`` Verbose
 --------------
 Verbose mode can be used to debug problems in lower layers of the
@@ -163,3 +213,6 @@ From there, everything should be quite straight forward.  The only thing which c
      from .uboot.tests import test_uboot_emmc
 
   And then call the testcase as ``tc.test_uboot_emmc``.
+
+- ``-p NAME=VALUE`` no longer evaluates the value as Python code.  Values
+  are Python literals or strings, see :ref:`cli-params`.
