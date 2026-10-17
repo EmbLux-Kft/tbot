@@ -1,9 +1,11 @@
+from typing import Any
+
 import pytest
 import testmachines
 from conftest import AnyLinuxShell
 
 import tbot
-from tbot.machine import linux
+from tbot.machine import connector, linux
 
 
 def test_local_copy(any_linux_shell: AnyLinuxShell) -> None:
@@ -52,3 +54,34 @@ def test_ssh_copy(direction: str, tbot_context: tbot.Context) -> None:
         linux.copy(src, dest)
         content = dest.read_text()
         assert content == expected
+
+
+@pytest.mark.parametrize("direction", ["to", "from"])  # type: ignore
+def test_ssh_copy_without_paramiko(
+    direction: str, tbot_context: tbot.Context, monkeypatch: Any
+) -> None:
+    # without paramiko, connector has no ParamikoConnector
+    monkeypatch.delattr(connector, "ParamikoConnector", raising=False)
+    with tbot_context() as cx:
+        ssh = cx.request(testmachines.MocksshClient)
+        testdir_ssh = ssh.workdir / "ssh-copy-tests-noparamiko"
+        ssh.exec0("rm", "-rf", testdir_ssh)
+        ssh.exec0("mkdir", testdir_ssh)
+        file_ssh = testdir_ssh / "file.txt"
+
+        # a local host other than the lab host of the ssh machine
+        with testmachines.Localhost() as lo:
+            testdir_lo = lo.workdir / "ssh-copy-tests-noparamiko"
+            lo.exec0("rm", "-rf", testdir_lo)
+            lo.exec0("mkdir", testdir_lo)
+            file_lo = testdir_lo / "file.txt"
+
+            if direction == "to":
+                src, dest = file_lo, file_ssh
+            else:
+                src, dest = file_ssh, file_lo
+
+            expected = "copy without paramiko\n"
+            src.write_text(expected)
+            linux.copy(src, dest)
+            assert dest.read_text() == expected
