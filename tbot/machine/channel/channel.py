@@ -881,6 +881,44 @@ class Channel(typing.ContextManager):
             finally:
                 self.prompt = previous
 
+    def read_until_prompt_safe(
+        self,
+        prompt: typing.Optional[ConvenientSearchString] = None,
+        timeout: float = 2,
+        poll_timeout: float = 0.5,
+    ) -> str:
+        """
+        Same as read_until_prompt(), but tolerant of a torn/garbled prompt.
+
+        On a real console, unrelated asynchronous output (kernel messages,
+        USB/network hotplug events, ...) can interleave with the shell
+        writing its prompt, so the exact prompt bytes never appear
+        contiguously in the stream.  No matching can recover that
+        occurrence, the shell has to print its prompt again.
+
+        This method polls read_until_prompt() with a short per-attempt
+        timeout (``poll_timeout``, default 0.5s).  Whenever an attempt
+        times out, it sends an empty line to make the shell redraw its
+        prompt, and retries.  It gives up and raises ``TimeoutError``
+        once the overall ``timeout`` (default 2s) has expired.
+
+        This should be used when other, unrelated output may pop up on
+        the console (you should still try to get rid of such noise for
+        reproducible tests wherever possible).
+        """
+        start = time.monotonic()
+        while True:
+            remaining = timeout - (time.monotonic() - start)
+            if remaining <= 0:
+                raise TimeoutError()
+
+            try:
+                return self.read_until_prompt(prompt, min(poll_timeout, remaining))
+            except TimeoutError:
+                pass
+
+            self.sendline("")
+
     def read_until_prompt(
         self,
         prompt: typing.Optional[ConvenientSearchString] = None,

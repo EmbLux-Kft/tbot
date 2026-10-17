@@ -1,3 +1,4 @@
+import time
 from typing import Iterator, Match
 
 import pytest
@@ -137,6 +138,42 @@ def test_read_until_prompt_bounded_pattern_before_newline(
     # without onlcr the newline is not turned into "\r\n"
     ch.sendline("stty -onlcr; printf 'PR%s> \\n' 1234567; sleep 5")
     ch.read_until_prompt(prompt=prompt, timeout=3)
+
+
+def test_read_until_prompt_safe_success(ch: channel.Channel) -> None:
+    """
+    read_until_prompt_safe() returns the output in front of the prompt.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("echo prompt-save-worked", read_back=True)
+    out = ch.read_until_prompt_safe(prompt=prompt)
+    assert "prompt-save-worked" in out
+
+
+def test_read_until_prompt_safe_redraws_prompt(ch: channel.Channel) -> None:
+    """
+    Output after the prompt hides it from read_until_prompt(), an empty
+    line from read_until_prompt_safe() makes the shell print it again.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("(sleep 0.3; echo noise) &", read_back=True)
+    time.sleep(1)
+    out = ch.read_until_prompt_safe(prompt=prompt, timeout=3, poll_timeout=0.5)
+    assert "noise" in out
+
+
+def test_read_until_prompt_safe_timeout(ch: channel.Channel) -> None:
+    """
+    read_until_prompt_safe() keeps sending empty lines and raises a
+    TimeoutError if no prompt shows up within the overall timeout.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("sleep 10", read_back=True)
+    with pytest.raises(TimeoutError):
+        ch.read_until_prompt_safe(prompt=prompt, timeout=1, poll_timeout=0.3)
 
 
 def test_blacklist(ch: channel.Channel) -> None:
