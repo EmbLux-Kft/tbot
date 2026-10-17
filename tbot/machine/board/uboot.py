@@ -135,6 +135,99 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
         yield None
 
 
+class UBootAutobootInterceptSimple(machine.Initializer, UbootStartup):
+    """
+    Machine-initializer to intercept U-Boot autobooting, also with a
+    ``bootdelay`` of 0.
+
+    :py:class:`UBootAutobootIntercept` waits for the autoboot prompt before it
+    presses the keys, which is too late when U-Boot does not wait.  This
+    initializer presses ``autoboot_keys`` right away and waits
+    ``autoboot_timeout`` for the U-Boot prompt.  If it does not show up, it
+    presses the keys and Ctrl-C again, until ``boot_timeout`` expires (or
+    forever without ``boot_timeout``).
+
+    Use a single key in ``autoboot_keys``, as U-Boot may start to read the
+    console only while the following keys are already sent.
+
+    **Example**:
+
+    .. code-block:: python
+
+        class MyUBoot(
+            board.Connector,
+            board.UBootAutobootInterceptSimple,
+            board.UBootShell,
+        ):
+            autoboot_timeout = 0.05
+            autoboot_keys = " "
+    """
+
+    autoboot_prompt: typing.Optional[channel.channel.ConvenientSearchString] = (
+        re.compile(b"autoboot:\\s{0,5}\\d{0,3}\\s{0,3}.{0,80}")
+    )
+    """
+    Not waited for, set it to ``None`` to turn the interception off.
+    """
+
+    autoboot_keys: typing.Union[str, bytes] = "\r"
+    """
+    Keys to press until the U-Boot prompt shows up.
+    """
+
+    autoboot_timeout: float = 0.1
+    """
+    Time to wait for the U-Boot prompt after pressing ``autoboot_keys``.
+    """
+
+    autoboot_settle_time: float = 2.0
+    """
+    Time to read and drop the console output after the U-Boot prompt was
+    found, e.g. the prompts answering keys that were pressed before.
+    """
+
+    prompt: typing.Union[str, bytes]
+
+    def get_death_strings(self) -> typing.List[str]:
+        """
+        Death strings to add to the channel, see
+        :py:meth:`UBootAutobootIntercept.get_death_strings`.
+        """
+        return []
+
+    @contextlib.contextmanager
+    def _init_machine(self) -> typing.Iterator:
+        for death_string in self.get_death_strings():
+            self.ch.add_death_string(death_string)
+
+        if self.autoboot_prompt is not None:
+            with self.ch.with_stream(self._uboot_startup_event()):
+                prompt = (
+                    self.prompt.encode("utf-8")
+                    if isinstance(self.prompt, str)
+                    else self.prompt
+                )
+                self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+                while True:
+                    if self.boot_timeout is not None:
+                        assert self._timeout_start is not None
+                        if time.monotonic() - self._timeout_start > self.boot_timeout:
+                            raise TimeoutError("U-Boot did not reach shell in time")
+
+                    try:
+                        self.ch.read_until_prompt(
+                            prompt=prompt, timeout=self.autoboot_timeout
+                        )
+                        break
+                    except TimeoutError:
+                        self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+                        self.ch.sendintr()
+
+                self.ch.read_until_timeout(self.autoboot_settle_time)
+
+        yield None
+
+
 _hush_find_unsafe = re.compile(r"[^\w@%+=:,./-]", re.ASCII).search
 
 
