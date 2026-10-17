@@ -174,3 +174,8 @@ Waiting for {wait_time:.1f} more seconds..."""
 class SubprocessChannel(channel.Channel):
     def __init__(self) -> None:
         super().__init__(SubprocessChannelIO())
+        # Some USB serial adapters drop characters when they get a whole
+        # line at once, so send in small chunks by default.  A connector
+        # can change both values on the channel it opens.
+        self.slow_send_delay = 0.01
+        self.slow_send_chunksize = 8
