@@ -1,3 +1,4 @@
+import os
 import time
 import contextlib
 from typing import Iterator, Union
@@ -327,6 +328,40 @@ class MockhwBoardUBootDeath(MockhwBoardUBoot):
     uboot_crash_death_strings = ["TBOT_DEATH"]
 
 
+class MockUBootAutobootSimple(
+    connector.ConsoleConnector,
+    board.UBootAutobootInterceptSimple,
+    board.UBootShell,
+    tbot.role.Role,
+):
+    """U-Boot with bootdelay=0, see mock_uboot_readline.py."""
+
+    name = "mock-uboot-autoboot-simple"
+    prompt = "=> "
+    boot_timeout = 10
+    autoboot_settle_time = 0.5
+
+    def connect(self, mach: linux.LinuxShell) -> channel.Channel:
+        script = os.path.join(os.path.dirname(__file__), "mock_uboot_readline.py")
+        return mach.open_channel("python3", linux.Path(mach, script), "--bootdelay0")
+
+
+class MockUBootAutobootSimpleDeath(MockUBootAutobootSimple):
+    """Has U-Boot's error message as death string."""
+
+    name = "mock-uboot-autoboot-simple-death"
+
+    uboot_crash_death_strings = ["## Error:"]
+
+
+class MockUBootAutobootSimpleNoPrompt(MockUBootAutobootSimple):
+    """Waits for a prompt the mock never prints."""
+
+    name = "mock-uboot-autoboot-simple-noprompt"
+    prompt = "never> "
+    boot_timeout = 1
+
+
 class MockhwBoardLinux(
     board.LinuxUbootConnector,
     board.AskfirstInitializer,
@@ -353,3 +388,6 @@ def register_machines(ctx: tbot.Context) -> None:
     ctx.register(MockhwBoardUBoot, [MockhwBoardUBoot, tbot.role.BoardUBoot])
     ctx.register(MockhwBoardUBootDeath, [MockhwBoardUBootDeath])
     ctx.register(MockhwBoardLinux, [MockhwBoardLinux, tbot.role.BoardLinux])
+    ctx.register(MockUBootAutobootSimple, [MockUBootAutobootSimple])
+    ctx.register(MockUBootAutobootSimpleDeath, [MockUBootAutobootSimpleDeath])
+    ctx.register(MockUBootAutobootSimpleNoPrompt, [MockUBootAutobootSimpleNoPrompt])

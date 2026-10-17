@@ -132,6 +132,9 @@ In case your U-Boot is configured for autoboot, you'll want to use the optional
 .. autoclass:: tbot.machine.board.UBootAutobootIntercept
    :members:
 
+.. autoclass:: tbot.machine.board.UBootAutobootInterceptSimple
+   :members:
+
 
 .. _board-linux:
 
