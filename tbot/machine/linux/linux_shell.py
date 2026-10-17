@@ -15,12 +15,20 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import abc
+import os
 import typing
 import tbot
 import tbot.error
 from .. import shell, channel
 from . import path, workdir, util
-from .special import Special
+from .special import Special, Raw
+from .cmdversion import (
+    CmdVersion,
+    PROBES,
+    FIXED_IMPL,
+    parse_version_output,
+    parse_busybox_banner,
+)
 
 Self = typing.TypeVar("Self", bound="LinuxShell")
 
@@ -128,6 +136,128 @@ class LinuxShell(shell.Shell):
             newline in most cases.
         """
         raise tbot.error.AbstractMethodError()
+
+    def cmd_versions_set(
+        self: Self, versions: typing.Dict[str, typing.Union[str, CmdVersion]]
+    ) -> None:
+        """
+        Preset what :py:meth:`cmd_get_version` returns for some commands,
+        e.g. from a configuration, so it does not have to find it out on
+        the machine.
+
+        **Example**:
+
+        .. code-block:: python
+
+            mach.cmd_versions_set({"top": "busybox:1.37.0", "ps": "procps-ng:4.0.6"})
+
+        :param versions: dictionary command -> :py:class:`CmdVersion` or its
+            ``str()``, see :py:meth:`CmdVersion.parse()
+            <tbot.machine.linux.CmdVersion.parse>`.
+        """
+        cache = self._cmd_versions()
+        for cmd, version in versions.items():
+            if not isinstance(version, CmdVersion):
+                version = CmdVersion.parse(version)
+            cache[cmd] = version
+
+    def _cmd_versions(self: Self) -> typing.Dict[str, CmdVersion]:
+        try:
+            return self._cmd_version_cache  # type: ignore
+        except AttributeError:
+            self._cmd_version_cache: typing.Dict[str, CmdVersion] = {}
+            return self._cmd_version_cache
+
+    def install_package(self: Self, cmd: str) -> bool:
+        """
+        Install the package that provides ``cmd``, for
+        :py:meth:`cmd_get_version` with ``autoinstall=True``.
+
+        The default cannot install anything and returns ``False``; a machine
+        class that knows how to install packages on its system overrides it.
+
+        :param cmd: the command that is missing.
+        :returns: ``True`` if the package was installed.
+        """
+        return False
+
+    def cmd_get_version(
+        self: Self, cmd: str, autoinstall: bool = False, refresh: bool = False
+    ) -> CmdVersion:
+        """
+        Find out which implementation and version of ``cmd`` this machine has.
+
+        It is found out once per machine, on the first call for ``cmd``, or
+        taken from :py:meth:`cmd_versions_set`; later calls return the same,
+        unless ``refresh=True``.
+
+        - ``command -v`` in a ``sh -c`` finds the command, past aliases of
+          the login shell; ``notfound`` if there is none.
+          With ``autoinstall=True`` :py:meth:`install_package` is tried
+          first, and the command looked for again.
+        - A command that resolves (``readlink -f``) to busybox is
+          ``busybox:<version>``, the version from the busybox banner.
+        - Otherwise, if :py:data:`~tbot.machine.linux.cmdversion.PROBES`
+          has version arguments for it, the command is run with each
+          (``LC_ALL=C``) until its output matches one of
+          :py:data:`~tbot.machine.linux.cmdversion.PATTERNS`, e.g.
+          ``procps-ng:4.0.6``.  Without a match, or without a probe, it is
+          ``full:unknown`` (or the name from
+          :py:data:`~tbot.machine.linux.cmdversion.FIXED_IMPL`).
+        - A shell builtin is ``shell-builtin:unknown``.
+
+        **Example**:
+
+        .. code-block:: python
+
+            top = lnx.cmd_get_version("top")
+            if top.is_busybox:
+                ...
+
+        :param cmd: name of the command.
+        :param autoinstall: try to install the command if it is missing.
+        :param refresh: find it out on the machine again, even if it is
+            known already (from an earlier call or a preset).
+        :rtype: CmdVersion
+        """
+        cache = self._cmd_versions()
+        version = cache.get(cmd)
+        if not refresh and version is not None and (version.found or not autoinstall):
+            return version
+
+        version = self._cmd_find_version(cmd)
+        if not version.found and autoinstall and self.install_package(cmd):
+            version = self._cmd_find_version(cmd)
+        cache[cmd] = version
+        return version
+
+    def _cmd_find_version(self: Self, cmd: str) -> CmdVersion:
+        # in a shell of its own, which has none of the aliases of the login
+        # shell; "command -v" prints an alias as its definition, not the path
+        ret, out = self.exec("sh", "-c", 'command -v "$1"', "sh", cmd)
+        lines = out.strip().splitlines()
+        where = lines[-1].strip() if ret == 0 and lines else ""
+        if not where:
+            return CmdVersion(CmdVersion.NOTFOUND)
+        if "/" not in where:
+            return CmdVersion("shell-builtin", path=where)
+
+        ret, out = self.exec("readlink", "-f", where)
+        real = out.strip() if ret == 0 and out.strip() else where
+        if os.path.basename(real).startswith("busybox"):
+            out = self.exec(real, Raw("</dev/null 2>&1"))[1]
+            return CmdVersion("busybox", parse_busybox_banner(out), path=where)
+
+        probes = PROBES.get(cmd, ())
+        if isinstance(probes, str):
+            probes = (probes,)
+        for probe in probes:
+            out = self.exec("env", "LC_ALL=C", where, probe, Raw("</dev/null 2>&1"))[1]
+            found = parse_version_output(out)
+            if found is not None:
+                found.path = where
+                return found
+        return CmdVersion(FIXED_IMPL.get(cmd, "full"), path=where)
 
     @abc.abstractmethod
     def test(
