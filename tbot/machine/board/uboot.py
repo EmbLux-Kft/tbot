@@ -354,7 +354,7 @@ class UBootShell(shell.Shell, UbootStartup):
                     if (time.monotonic() - self._timeout_start) > self.boot_timeout:
                         raise TimeoutError("U-Boot did not reach shell in time")
                 try:
-                    self.ch.read_until_prompt(timeout=0.5)
+                    self.ch.read_until_prompt(timeout=2)
                     break
                 except TimeoutError:
                     self.ch.sendintr()
