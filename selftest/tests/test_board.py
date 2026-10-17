@@ -77,3 +77,11 @@ def test_linux_boot(tbot_context: tbot.Context) -> None:
 
         with pytest.raises(tbot.error.CommandFailure):
             lnx.exec0("false")
+
+
+def test_linux_login_noisy_console(tbot_context: tbot.Context) -> None:
+    tbot_context.teardown_if_alive(testmachines.MockhwBoardLinux)
+    tbot_context.teardown_if_alive(testmachines.MockhwBoardUBoot)
+    with tbot_context.request(testmachines.MockhwBoardLinuxNoisy) as lnx:
+        assert lnx.exec0("echo", "Hello World") == "Hello World\n"
+    tbot_context.teardown_if_alive(testmachines.MockhwBoardLinuxNoisy)
