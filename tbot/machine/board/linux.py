@@ -85,6 +85,12 @@ class LinuxBootLogin(machine.Initializer, LinuxBoot):
 
     This delay might be necessary if your system clutters the login prompt with
     log-messages during the first few seconds after boot.
+
+    With a delay, tbot also does not wait for the first login prompt for the
+    whole ``boot_timeout``, as log-messages printed right after the prompt
+    would hide it.  It waits ``login_delay`` seconds for the prompt and, if it
+    does not show up, sends an empty line so the prompt is printed again,
+    until ``boot_timeout`` expires.
     """
 
     password_prompt: channel.channel.ConvenientSearchString = "assword: "
@@ -147,29 +153,30 @@ class LinuxBootLogin(machine.Initializer, LinuxBoot):
             if self._boot_start is None:
                 self._boot_start = time.monotonic()
 
-            self.ch.read_until_prompt(
-                prompt=self.login_prompt, timeout=self.boot_timeout
-            )
-
-            # On purpose do not login immediately as we may get some
-            # console flooding from upper SW layers (and tbot's console
-            # setup may get broken)
-            if self.login_delay != 0:
-                remaining = self._timeout_remaining()
-                if remaining is not None and self.login_delay > remaining:
-                    # we know that we will hit the timeout by waiting for
-                    # login_delay so why not raise the TimeoutError now...
-                    raise TimeoutError(
-                        "login_delay would exceed boot_timeout, aborting."
-                    )
-
-                # Read everything while waiting for timeout to expire
-                self.ch.read_until_timeout(self.login_delay)
-
-                self.ch.sendline("")
+            if not self.login_delay:
                 self.ch.read_until_prompt(
-                    prompt=self.login_prompt, timeout=self._timeout_remaining()
+                    prompt=self.login_prompt, timeout=self.boot_timeout
                 )
+            else:
+                # On purpose do not login immediately as we may get some
+                # console flooding from upper SW layers (and tbot's console
+                # setup may get broken).  Output right after the login
+                # prompt hides it, so wait login_delay for the prompt and
+                # send an empty line to get a new one if it does not show
+                # up.  _timeout_remaining() raises once boot_timeout has
+                # expired.
+                while True:
+                    remaining = self._timeout_remaining()
+                    poll_timeout = float(self.login_delay)
+                    if remaining is not None:
+                        poll_timeout = min(poll_timeout, remaining)
+                    try:
+                        self.ch.read_until_prompt(
+                            prompt=self.login_prompt, timeout=poll_timeout
+                        )
+                        break
+                    except TimeoutError:
+                        self.ch.sendline("")
 
             self.ch.sendline(self.username)
             if self.password is not None:
