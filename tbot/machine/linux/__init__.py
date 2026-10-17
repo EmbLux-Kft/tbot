@@ -18,6 +18,7 @@ import typing
 import tbot
 
 from .linux_shell import LinuxShell
+from .cmdversion import CmdVersion
 from .path import Path
 from .special import (
     AndThen,
@@ -45,6 +46,7 @@ from . import auth
 from .copy import copy
 
 __all__ = (
+    "CmdVersion",
     "Ash",
     "auth",
     "build",

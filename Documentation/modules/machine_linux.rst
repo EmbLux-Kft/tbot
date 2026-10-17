@@ -31,6 +31,9 @@ following methods:
   subshell environment.
 - :py:meth:`lnx.interactive() <tbot.machine.linux.LinuxShell.interactive>` -
   Start an interactive session for this machine.
+- :py:meth:`lnx.cmd_get_version() <tbot.machine.linux.LinuxShell.cmd_get_version>` -
+  Find out which implementation and version a command has, see
+  :ref:`linux-cmdversion`.
 
 And the following properties:
 
@@ -221,6 +224,28 @@ RunCommandProxy
    :members:
 
 .. autoclass:: tbot.machine.linux.CommandEndedException
+
+
+.. _linux-cmdversion:
+
+Command Versions
+----------------
+.. automodule:: tbot.machine.linux.cmdversion
+
+.. autoclass:: tbot.machine.linux.CmdVersion
+   :members:
+
+.. autodata:: tbot.machine.linux.cmdversion.PROBES
+   :no-value:
+
+.. autodata:: tbot.machine.linux.cmdversion.PATTERNS
+   :no-value:
+
+.. autodata:: tbot.machine.linux.cmdversion.IMPL_NAMES
+   :no-value:
+
+.. autodata:: tbot.machine.linux.cmdversion.FIXED_IMPL
+   :no-value:
 
 
 Paths
