@@ -97,6 +97,13 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
     Keys to press as soon as autoboot prompt is detected.
     """
 
+    autoboot_iter: int = 1
+    """
+    Number of autoboot prompts to wait for before pressing the keys, e.g.
+    when a debugger lets the U-Boot in flash start before it stops the board
+    and loads another one.
+    """
+
     def get_death_strings(self) -> typing.List[str]:
         """
         Death strings to add to the channel when the machine is initialized.
@@ -115,21 +122,22 @@ class UBootAutobootIntercept(machine.Initializer, UbootStartup):
 
         if self.autoboot_prompt is not None:
             with self.ch.with_stream(self._uboot_startup_event()):
-                timeout = None
-                if self.boot_timeout is not None:
-                    assert self._timeout_start is not None
-                    timeout = self.boot_timeout - (
-                        time.monotonic() - self._timeout_start
-                    )
+                for _ in range(self.autoboot_iter):
+                    timeout = None
+                    if self.boot_timeout is not None:
+                        assert self._timeout_start is not None
+                        timeout = self.boot_timeout - (
+                            time.monotonic() - self._timeout_start
+                        )
 
-                try:
-                    self.ch.read_until_prompt(
-                        prompt=self.autoboot_prompt, timeout=timeout
-                    )
-                except TimeoutError:
-                    raise TimeoutError(
-                        "U-Boot autoboot prompt did not show up in time"
-                    ) from None
+                    try:
+                        self.ch.read_until_prompt(
+                            prompt=self.autoboot_prompt, timeout=timeout
+                        )
+                    except TimeoutError:
+                        raise TimeoutError(
+                            "U-Boot autoboot prompt did not show up in time"
+                        ) from None
                 self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
 
         yield None
@@ -180,6 +188,13 @@ class UBootAutobootInterceptSimple(machine.Initializer, UbootStartup):
     Time to wait for the U-Boot prompt after pressing ``autoboot_keys``.
     """
 
+    autoboot_iter: int = 1
+    """
+    Number of times to press the keys until the U-Boot prompt shows up, e.g.
+    when a debugger lets the U-Boot in flash start before it stops the board
+    and loads another one.
+    """
+
     autoboot_settle_time: float = 2.0
     """
     Time to read and drop the console output after the U-Boot prompt was
@@ -207,21 +222,25 @@ class UBootAutobootInterceptSimple(machine.Initializer, UbootStartup):
                     if isinstance(self.prompt, str)
                     else self.prompt
                 )
-                self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
-                while True:
-                    if self.boot_timeout is not None:
-                        assert self._timeout_start is not None
-                        if time.monotonic() - self._timeout_start > self.boot_timeout:
-                            raise TimeoutError("U-Boot did not reach shell in time")
+                for _ in range(self.autoboot_iter):
+                    self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+                    while True:
+                        if self.boot_timeout is not None:
+                            assert self._timeout_start is not None
+                            if (
+                                time.monotonic() - self._timeout_start
+                                > self.boot_timeout
+                            ):
+                                raise TimeoutError("U-Boot did not reach shell in time")
 
-                    try:
-                        self.ch.read_until_prompt(
-                            prompt=prompt, timeout=self.autoboot_timeout
-                        )
-                        break
-                    except TimeoutError:
-                        self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
-                        self.ch.sendintr()
+                        try:
+                            self.ch.read_until_prompt(
+                                prompt=prompt, timeout=self.autoboot_timeout
+                            )
+                            break
+                        except TimeoutError:
+                            self.ch.send(self.autoboot_keys, _ignore_blacklist=True)
+                            self.ch.sendintr()
 
                 self.ch.read_until_timeout(self.autoboot_settle_time)
 
