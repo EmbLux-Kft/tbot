@@ -7,11 +7,18 @@ the Enter key with puts("\\r\\n").  The serial uclass puts a \r in front of
 every \n it sends, so the echo of the Enter key is "\\r\\r\\n" (with
 CONFIG_CMDLINE_EDITING it is "\\r\\n").
 
+With --bootdelay0 it acts like U-Boot with bootdelay=0: it checks once,
+right after its banner, whether a key was pressed, and boots (never shows a
+prompt) if not.
+
 Only the commands the selftest needs are implemented.
 """
 
 import os
+import select
 import shlex
+import sys
+import time
 import tty
 import typing
 
@@ -37,8 +44,23 @@ def readline() -> typing.Optional[str]:
         line += c
 
 
+def autoboot_bootdelay0() -> None:
+    puts("U-Boot mock\n\nHit any key to stop autoboot:  0 \n")
+    time.sleep(0.2)
+    # bootdelay=0 looks for a key only once
+    if select.select([0], [], [], 0)[0]:
+        os.read(0, 1)
+        return
+    puts("Starting kernel ...\n")
+    while os.read(0, 1) != b"":
+        pass
+    sys.exit(0)
+
+
 def main() -> None:
     tty.setraw(0)
+    if "--bootdelay0" in sys.argv:
+        autoboot_bootdelay0()
     env = {}
     retcode = 0
     while True:

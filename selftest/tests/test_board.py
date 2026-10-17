@@ -83,6 +83,12 @@ def test_uboot_death_string(tbot_context: tbot.Context) -> None:
     tbot_context.teardown_if_alive(testmachines.MockhwBoardUBootDeath)
 
 
+def test_uboot_autoboot_simple(tbot_context: tbot.Context) -> None:
+    with tbot_context.request(testmachines.MockUBootAutobootSimple) as ub:
+        assert ub.exec0("echo", "Hello") == "Hello\n"
+        assert ub.exec0("echo", "World") == "World\n"
+
+
 def test_uboot_simple_control(tbot_context: tbot.Context) -> None:
     with tbot_context.request(testmachines.MockhwBoardUBoot) as ub:
         out = ub.exec0(

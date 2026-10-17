@@ -347,6 +347,24 @@ class MockhwBoardUBootDeath(MockhwBoardUBoot):
         return ["TBOT_DEATH"]
 
 
+class MockUBootAutobootSimple(
+    connector.ConsoleConnector,
+    board.UBootAutobootInterceptSimple,
+    board.UBootShell,
+    tbot.role.Role,
+):
+    """U-Boot with bootdelay=0, see mock_uboot_readline.py."""
+
+    name = "mock-uboot-autoboot-simple"
+    prompt = "=> "
+    boot_timeout = 10
+    autoboot_settle_time = 0.5
+
+    def connect(self, mach: linux.LinuxShell) -> channel.Channel:
+        script = os.path.join(os.path.dirname(__file__), "mock_uboot_readline.py")
+        return mach.open_channel("python3", linux.Path(mach, script), "--bootdelay0")
+
+
 class MockhwBoardLinux(
     board.LinuxUbootConnector,
     board.AskfirstInitializer,
@@ -374,3 +392,4 @@ def register_machines(ctx: tbot.Context) -> None:
     ctx.register(MockhwBoardUBootDeath, [MockhwBoardUBootDeath])
     ctx.register(MockhwBoardLinux, [MockhwBoardLinux, tbot.role.BoardLinux])
     ctx.register(MockUBootSimpleReadline, [MockUBootSimpleReadline])
+    ctx.register(MockUBootAutobootSimple, [MockUBootAutobootSimple])
