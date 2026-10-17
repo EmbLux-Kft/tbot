@@ -69,19 +69,19 @@ class Bash(linux_shell.LinuxShell):
                 + b"'",
             )
             self.ch.prompt = TBOT_PROMPT
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Disable history
             self.ch.sendline("unset HISTFILE")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Disable line editing
             self.ch.sendline("set +o emacs; set +o vi")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Set secondary prompt to ""
             self.ch.sendline("PS2=''")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Disable history expansion because it is not always affected by
             # quoting rules and thus can mess with parameter values.  For
@@ -90,14 +90,14 @@ class Bash(linux_shell.LinuxShell):
             # "\n^\n".  As it is not really useful for tbot tests anyway,
             # disable all history expansion 'magic characters' entirely.
             self.ch.sendline("histchars=''")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Set terminal size
             termsize = shutil.get_terminal_size()
             self.ch.sendline(f"stty cols {max(80, termsize.columns - 48)}")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
             self.ch.sendline(f"stty rows {termsize.lines}")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Do a sanity check to assert that shell interaction is working
             # exactly as expected

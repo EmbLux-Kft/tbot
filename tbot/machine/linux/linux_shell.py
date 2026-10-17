@@ -32,6 +32,24 @@ class LinuxShell(shell.Shell):
     This class defines the common interface for linux shells.
     """
 
+    safe_init_prompt: bool = False
+    """
+    Read the prompt with
+    :py:meth:`~tbot.machine.channel.Channel.read_until_prompt_safe` while tbot
+    sets up the shell.
+
+    It sends an empty line when the prompt does not show up within half a
+    second and gives up after two seconds.  This helps on a console where
+    other output can tear the prompt apart, e.g. kernel messages on a serial
+    console, but slows down the setup of a shell whose prompt comes late.
+    """
+
+    def _read_init_prompt(self) -> None:
+        if self.safe_init_prompt:
+            self.ch.read_until_prompt_safe()
+        else:
+            self.ch.read_until_prompt()
+
     @abc.abstractmethod
     def escape(
         self: Self, *args: typing.Union[str, Special[Self], path.Path[Self]]
