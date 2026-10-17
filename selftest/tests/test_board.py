@@ -4,7 +4,7 @@ import pytest
 import testmachines
 
 import tbot
-from tbot.machine import board
+from tbot.machine import board, channel, linux
 
 
 def test_board_power(tbot_context: tbot.Context) -> None:
@@ -72,6 +72,15 @@ def test_uboot_run(tbot_context: tbot.Context, mach: Any) -> None:
                 false.terminate0()
 
         assert ub.exec0("echo", "Hello") == "Hello\n"
+
+
+def test_uboot_death_string(tbot_context: tbot.Context) -> None:
+    tbot_context.teardown_if_alive(testmachines.MockhwBoardUBoot)
+    with tbot_context.request(testmachines.MockhwBoardUBootDeath) as ub:
+        assert ub.exec0("echo", "Hello") == "Hello\n"
+        with pytest.raises(channel.DeathStringException):
+            ub.exec0(linux.Raw("printf 'TBOT_\\x44EATH\\n'"))
+    tbot_context.teardown_if_alive(testmachines.MockhwBoardUBootDeath)
 
 
 def test_uboot_simple_control(tbot_context: tbot.Context) -> None:
