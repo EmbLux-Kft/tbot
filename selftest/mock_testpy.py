@@ -6,7 +6,8 @@ It uses the hook scripts the way test/py does (see test/py/console_board.py
 in U-Boot): u-boot-test-console for the console, u-boot-test-reset before
 the first command and u-boot-test-release at the end.  With --lab-mode it
 expects the lab mode messages of test/py/console_base.py before the board
-is ready.  It sends one command and checks its output.
+is ready.  It sends one command and checks its output.  The directory
+given with --build-dir must hold a .config.
 """
 
 import os
@@ -47,6 +48,9 @@ class Console:
 def main() -> None:
     lab_mode = "--lab-mode" in sys.argv
     board = sys.argv[sys.argv.index("--board-type") + 1]
+    builddir = sys.argv[sys.argv.index("--build-dir") + 1]
+    if not os.path.exists(os.path.join(builddir, ".config")):
+        sys.exit(f"mock test.py: no .config in --build-dir {builddir}")
 
     con = subprocess.Popen(
         ["u-boot-test-console", board, "na"],

@@ -151,6 +151,7 @@ def testpy(
     uboot: Optional[tbot.role.BoardUBoot] = None,
     boardenv: Optional[str] = None,
     testpy_args: Optional[List[str]] = None,
+    uboot_builddir: Optional[linux.Path[BH]] = None,
 ) -> None:
     """
     Run U-Boot's test/py test-framework against a tbot-machine.
@@ -243,11 +244,17 @@ def testpy(
         test/py invocation.  For example, you can use ``["-k", "mmc"]`` to
         filter for mmc tests only.  Or ``["-v"]`` to show the names of all
         testcases as they are executed (or skipped).
+    :param tbot.machine.linux.Path uboot_builddir: Optional build directory of
+        U-Boot (``make O=...``) on the same host as ``uboot_sources``, if it is
+        not the source directory.  It must hold the configuration, test/py gets
+        it as ``--build-dir``.
 
     .. versionadded:: 0.9.5
     """
     if board is not None:
         assert uboot is not None, "when passing `board`, `uboot` is also required!"
+
+    builddir = uboot_sources if uboot_builddir is None else uboot_builddir
 
     with tbot.ctx() as cx:
         bh = uboot_sources.host
@@ -269,10 +276,10 @@ def testpy(
         chan_console, chan_command = setup_testhooks(bh, m_console, m_command)
 
         assert (
-            uboot_sources / ".config"
+            builddir / ".config"
         ).exists(), "u-boot does not seem configured (.config is missing)!"
         assert (
-            uboot_sources / "include" / "autoconf.mk"
+            builddir / "include" / "autoconf.mk"
         ).exists(), "include/autoconf.mk is missing!"
 
         if board is not None:
@@ -309,7 +316,7 @@ def testpy(
             bh.run(
                 "./test/py/test.py",
                 "--build-dir",
-                ".",
+                "." if uboot_builddir is None else uboot_builddir,
                 "--board-type",
                 boardtype,
                 *(testpy_args or []),

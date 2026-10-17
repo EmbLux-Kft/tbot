@@ -55,3 +55,17 @@ def test_testpy(tbot_context: tbot.Context, monkeypatch: Any) -> None:
         # hooks of an earlier run must not hide a missing one
         bh.exec0("rm", "-rf", bh.workdir / "uboot-testpy-tbot")
         uboot.testpy(_mock_uboot_sources(bh))
+
+
+def test_testpy_builddir(tbot_context: tbot.Context, monkeypatch: Any) -> None:
+    monkeypatch.setattr(tbot, "ctx", tbot_context)
+    _teardown_boards(tbot_context)
+    with MockTestpyHost() as bh:
+        bh.exec0("rm", "-rf", bh.workdir / "uboot-testpy-tbot")
+        src = _mock_uboot_sources(bh)
+        builddir = bh.workdir / "u-boot-build"
+        bh.exec0("rm", "-rf", builddir)
+        bh.exec0("mkdir", "-p", builddir / "include")
+        bh.exec0("mv", src / ".config", builddir / ".config")
+        bh.exec0("mv", src / "include" / "autoconf.mk", builddir / "include")
+        uboot.testpy(src, uboot_builddir=builddir)
