@@ -1,11 +1,14 @@
 import os
+import re
 from typing import Any
 
+import pytest
 import testmachines
 
 import tbot
 from tbot.machine import linux
 from tbot_contrib import uboot
+from tbot_contrib.uboot import _testpy
 
 MOCK_TESTPY = os.path.join(os.path.dirname(__file__), "..", "..", "mock_testpy.py")
 
@@ -69,3 +72,72 @@ def test_testpy_builddir(tbot_context: tbot.Context, monkeypatch: Any) -> None:
         bh.exec0("mv", src / ".config", builddir / ".config")
         bh.exec0("mv", src / "include" / "autoconf.mk", builddir / "include")
         uboot.testpy(src, uboot_builddir=builddir)
+
+
+def test_testpy_lab_mode(tbot_context: tbot.Context, monkeypatch: Any) -> None:
+    monkeypatch.setattr(tbot, "ctx", tbot_context)
+    _teardown_boards(tbot_context)
+    with MockTestpyHost() as bh:
+        bh.exec0("rm", "-rf", bh.workdir / "uboot-testpy-tbot")
+        uboot.testpy(_mock_uboot_sources(bh), lab_mode=True, testpy_args=["--lab-mode"])
+
+
+def test_testpy_board_boardenv(tbot_context: tbot.Context, monkeypatch: Any) -> None:
+    """board and uboot given by the caller, a boardenv, and a powercycle delay"""
+    monkeypatch.setattr(tbot, "ctx", tbot_context)
+    monkeypatch.setattr(testmachines.MockhwBoard, "powercycle_delay", 0.1)
+    _teardown_boards(tbot_context)
+    with MockTestpyHost() as bh:
+        bh.exec0("rm", "-rf", bh.workdir / "uboot-testpy-tbot")
+        src = _mock_uboot_sources(bh)
+        with tbot_context.request(tbot.role.Board, reset=True) as b:
+            with tbot_context.request(tbot.role.BoardUBoot, exclusive=True) as ub:
+                uboot.testpy(src, board=b, uboot=ub, boardenv="# tbot boardenv\n")
+        name = f"tbot_{b.name}".replace("-", "_")
+        boardenv = src / "test" / "py" / f"u_boot_boardenv_{name}.py"
+        assert boardenv.read_text() == "# tbot boardenv\n"
+
+
+def test_testpy_lab_mode_no_signon(
+    tbot_context: tbot.Context, monkeypatch: Any
+) -> None:
+    monkeypatch.setattr(tbot, "ctx", tbot_context)
+    monkeypatch.setattr(_testpy, "_UBOOT_SIGNON", re.compile("tbot-no-signon"))
+    _teardown_boards(tbot_context)
+    with MockTestpyHost() as bh:
+        bh.exec0("rm", "-rf", bh.workdir / "uboot-testpy-tbot")
+        with pytest.raises(RuntimeError, match="signon message not found"):
+            uboot.testpy(
+                _mock_uboot_sources(bh), lab_mode=True, testpy_args=["--lab-mode"]
+            )
+    _teardown_boards(tbot_context)
+
+
+class _PipeChannel:
+    """Enough of a channel for _forward(): a file descriptor and read()."""
+
+    def __init__(self, data: bytes = b"") -> None:
+        self.r, self.w = os.pipe()
+        if data:
+            os.write(self.w, data)
+
+    def fileno(self) -> int:
+        return self.r
+
+    def read(self) -> bytes:
+        return os.read(self.r, 4096)
+
+    def close(self) -> None:
+        os.close(self.r)
+        os.close(self.w)
+
+
+def test_forward_unknown_command() -> None:
+    chans = [_PipeChannel(), _PipeChannel(), _PipeChannel(b"XX\n")]
+    testpy, console, command = chans
+    try:
+        with pytest.raises(Exception, match="unknown command"):
+            _testpy._forward(testpy, console, command, None)  # type: ignore
+    finally:
+        for c in chans:
+            c.close()

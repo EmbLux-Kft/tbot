@@ -288,7 +288,8 @@ set +o vi
 # Disable secondary prompt
 PS2=""
 
-# Simulated autoboot prompt
+# Simulated signon message and autoboot prompt
+echo "U-Boot 2026.10 (Oct 01 2026 - 12:00:00 +0000)"
 read -p "Autoboot: 3"
 
 # Make this shell look a lot like U-Boot
