@@ -81,6 +81,11 @@ def _scp_copy(
         )
 
 
+def _paramiko_connector() -> typing.Type:
+    # ParamikoConnector only exists if paramiko is installed
+    return getattr(connector, "ParamikoConnector", type(None))
+
+
 def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
     """
     Copy a file, possibly from one host to another.
@@ -156,7 +161,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
             use_multiplexing=p2.host.use_multiplexing,
         )
     elif isinstance(p1.host, connector.SubprocessConnector) and (
-        isinstance(p2.host, connector.ParamikoConnector)
+        isinstance(p2.host, _paramiko_connector())
         or isinstance(p2.host, connector.SSHConnector)
     ):
         # Copy from local to ssh labhost
@@ -173,7 +178,7 @@ def copy(p1: linux.Path[H1], p2: linux.Path[H2]) -> None:
             use_multiplexing=p2.host.use_multiplexing,
         )
     elif isinstance(p2.host, connector.SubprocessConnector) and (
-        isinstance(p1.host, connector.ParamikoConnector)
+        isinstance(p1.host, _paramiko_connector())
         or isinstance(p1.host, connector.SSHConnector)
     ):
         # Copy to local from ssh labhost
