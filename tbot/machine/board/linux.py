@@ -199,8 +199,9 @@ class LinuxBootLogin(machine.Initializer, LinuxBoot):
                     # should attempt continuing without a password.
                     tbot.log.warning(
                         "Didn't get asked for a password."
-                        + "  Optimistically continuing without one..."
+                        + "  Optimistically send it now..."
                     )
+                    self.ch.sendline(self.password)
                 else:
                     # No timeout exception means we're at the password prompt.
                     self.ch.sendline(self.password)
