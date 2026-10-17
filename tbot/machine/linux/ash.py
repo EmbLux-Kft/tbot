@@ -75,22 +75,22 @@ class Ash(linux_shell.LinuxShell):
                 + b"'",
             )
             self.ch.prompt = TBOT_PROMPT
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Disable history
             self.ch.sendline("unset HISTFILE")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Disable line editing
             #
             # Not really possible on ash.  Instead, make the terminal really
             # wide and hope for the best ...
             self.ch.sendline("stty cols 1024")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Set secondary prompt to ""
             self.ch.sendline("PS2=''")
-            self.ch.read_until_prompt()
+            self._read_init_prompt()
 
             # Do a sanity check to assert that shell interaction is working
             # exactly as expected

@@ -1,8 +1,10 @@
+from typing import Any
+
 import pytest
 from conftest import AnyLinuxShell
 import testmachines
 
-from tbot.machine import linux
+from tbot.machine import channel, linux
 from tbot.tc import shell
 import tbot
 
@@ -301,3 +303,27 @@ def test_unclean_shell(tbot_context: tbot.Context) -> None:
             with pytest.raises(tbot.error.UncleanShellError):
                 with lnx.subshell():
                     lnx.exec0("uname")
+
+
+def test_safe_init_prompt(tbot_context: tbot.Context, monkeypatch: Any) -> None:
+    calls = []
+    orig = channel.Channel.read_until_prompt_safe
+
+    def spy(self: channel.Channel, *args: Any, **kwargs: Any) -> str:
+        calls.append(1)
+        return orig(self, *args, **kwargs)
+
+    monkeypatch.setattr(channel.Channel, "read_until_prompt_safe", spy)
+
+    class SafeBash(testmachines.LocalhostBash):
+        name = "local-bash-safe-init"
+        safe_init_prompt = True
+
+    with tbot_context.request(tbot.role.LabHost) as lh:
+        with testmachines.LocalhostBash(lh) as bs:
+            assert bs.exec0("echo", "plain") == "plain\n"
+        assert calls == []
+
+        with SafeBash(lh) as bs:
+            assert bs.exec0("echo", "safe") == "safe\n"
+        assert calls != []
