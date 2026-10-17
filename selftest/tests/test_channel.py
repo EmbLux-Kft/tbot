@@ -113,6 +113,32 @@ def test_unbounded_pattern(ch: channel.Channel) -> None:
         ch.read_until_prompt(prompt=ub_pat, timeout=1)
 
 
+def test_read_until_prompt_bounded_pattern(ch: channel.Channel) -> None:
+    """
+    A BoundedPattern prompt is found at the right position when a lot of
+    output precedes it.
+    """
+    prompt = tbot.Re(r"bash-[0-9.]{1,10}\$ ")
+
+    ch.sendline("for i in $(seq 1 200); do echo line $i; done", read_back=True)
+    out = ch.read_until_prompt(prompt=prompt)
+    assert out.rstrip("\n").endswith("line 200")
+
+
+def test_read_until_prompt_bounded_pattern_before_newline(
+    ch: channel.Channel,
+) -> None:
+    """
+    The "$" with_prompt() appends also matches in front of a final newline,
+    so a prompt of the maximum width followed by a newline is found.
+    """
+    prompt = tbot.Re(r"PR[0-9]{7}> ")
+
+    # without onlcr the newline is not turned into "\r\n"
+    ch.sendline("stty -onlcr; printf 'PR%s> \\n' 1234567; sleep 5")
+    ch.read_until_prompt(prompt=prompt, timeout=3)
+
+
 def test_blacklist(ch: channel.Channel) -> None:
     """
     Test whether blacklisted characters are properly caught.
