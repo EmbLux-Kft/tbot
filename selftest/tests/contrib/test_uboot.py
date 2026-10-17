@@ -69,3 +69,11 @@ def test_testpy_builddir(tbot_context: tbot.Context, monkeypatch: Any) -> None:
         bh.exec0("mv", src / ".config", builddir / ".config")
         bh.exec0("mv", src / "include" / "autoconf.mk", builddir / "include")
         uboot.testpy(src, uboot_builddir=builddir)
+
+
+def test_testpy_lab_mode(tbot_context: tbot.Context, monkeypatch: Any) -> None:
+    monkeypatch.setattr(tbot, "ctx", tbot_context)
+    _teardown_boards(tbot_context)
+    with MockTestpyHost() as bh:
+        bh.exec0("rm", "-rf", bh.workdir / "uboot-testpy-tbot")
+        uboot.testpy(_mock_uboot_sources(bh), lab_mode=True, testpy_args=["--lab-mode"])
