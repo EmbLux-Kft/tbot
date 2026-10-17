@@ -47,6 +47,11 @@ sleep infinity
 
 echo "RESET" >{fifo_commands}
 """,
+    # Hook which test/py calls when it is done with the board (U-Boot v2025.01
+    # and later)
+    "u-boot-test-release": """\
+#!/usr/bin/env bash
+""",
     # Hook which test/py calls to flash U-Boot (unused here)
     "u-boot-test-flash": """\
 #!/usr/bin/env bash
