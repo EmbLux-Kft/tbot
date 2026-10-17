@@ -277,6 +277,20 @@ function setenv() {
     shift
     eval "$var=\\"$*\\""
 }
+function boot_noisy() {
+    echo "Pretending to boot Linux..."
+    # a log-message right after the login prompt hides it
+    printf "login: [  12.345] noisy kernel message\\n"
+    read -r
+    read -p "login: "
+    read -s -p "password: "
+    echo ""
+
+    PS1="bash@target-linux$ "
+    unset -f printenv
+    unset -f setenv
+    unset -f version
+}
 function crc32() {
     printf "crc32 for %s ... %s ==> " "$1" "$1"
     sleep 0.2
@@ -394,6 +408,25 @@ class MockhwBoardLinux(
     password = "hunter2"
 
 
+class MockhwBoardLinuxNoisy(
+    board.LinuxUbootConnector,
+    board.LinuxBootLogin,
+    linux.Bash,
+    tbot.role.Role,
+):
+    name = "mockhw-linux-noisy"
+
+    uboot = MockhwBoardUBoot
+
+    username = "root"
+    password = "hunter2"
+    login_delay = 1
+    boot_timeout = 10
+
+    def do_boot(self, ub: board.UBootShell) -> channel.Channel:
+        return ub.boot("boot_noisy")
+
+
 def register_machines(ctx: tbot.Context) -> None:
     ctx.register(Localhost, [Localhost, tbot.role.LabHost, tbot.role.LocalHost])
     ctx.register(LocalhostBash, [LocalhostBash])
@@ -409,3 +442,4 @@ def register_machines(ctx: tbot.Context) -> None:
     ctx.register(MockUBootAutobootSimple, [MockUBootAutobootSimple])
     ctx.register(MockUBootAutobootSimpleDeath, [MockUBootAutobootSimpleDeath])
     ctx.register(MockUBootAutobootSimpleNoPrompt, [MockUBootAutobootSimpleNoPrompt])
+    ctx.register(MockhwBoardLinuxNoisy, [MockhwBoardLinuxNoisy])
