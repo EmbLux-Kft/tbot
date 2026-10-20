@@ -1,9 +1,9 @@
 import io
 import json
+import os
 import pathlib
-import subprocess
 import sys
-from typing import Any, Optional, Tuple
+from typing import Any, Callable, NamedTuple, Optional, Tuple
 
 import pytest
 
@@ -11,6 +11,47 @@ import tbot
 import tbot.log
 import tbot.log_event
 from tbot import newbot
+
+
+class NewbotResult(NamedTuple):
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+NewbotMain = Callable[..., NewbotResult]
+
+
+@pytest.fixture
+def newbot_main(monkeypatch: Any, capsys: Any) -> NewbotMain:
+    """
+    Call newbot.main() in this process, so that the coverage of the selftest
+    includes it.  monkeypatch restores what main() changes: sys.path, the
+    working directory, tbot.flags, tbot.ctx and the log settings.
+    """
+
+    def run(tcdir: pathlib.Path, *args: str) -> NewbotResult:
+        monkeypatch.setattr(sys, "path", list(sys.path))
+        monkeypatch.chdir(os.getcwd())
+        monkeypatch.setattr(tbot, "flags", set())
+        monkeypatch.setattr(tbot, "ctx", tbot.ctx)
+        for name in ("VERBOSITY", "LOGFILE", "NESTING"):
+            monkeypatch.setattr(tbot.log, name, getattr(tbot.log, name))
+        # the testcase modules of tcdir are imported anew for every run
+        for name, mod in list(sys.modules.items()):
+            if str(getattr(mod, "__file__", "") or "").startswith(str(tcdir)):
+                monkeypatch.delitem(sys.modules, name)
+
+        capsys.readouterr()
+        returncode = 0
+        try:
+            newbot.main(["-C", str(tcdir), *args])
+        except SystemExit as e:
+            returncode = e.code if isinstance(e.code, int) else 1
+        out = capsys.readouterr()
+        return NewbotResult(returncode, out.out, out.err)
+
+    return run
 
 
 def test_tbot_start_is_logged(capsys: Any) -> None:
@@ -58,6 +99,10 @@ def kw(**kwargs) -> None:
 @tbot.testcase
 def other() -> None:
     print("other")
+
+
+def unresolvable(n: NoSuchType = 1) -> None:  # noqa: F821
+    print("unresolvable", repr(n))
 """
 
 
@@ -193,24 +238,8 @@ def test_resolve_wrong_type(tcs: pathlib.Path) -> None:
         newbot.TestcaseCall.parse("tcs.ping:count=many").resolve({})
 
 
-def run_newbot(tcdir: pathlib.Path, *args: str) -> "subprocess.CompletedProcess[str]":
-    return subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import sys, tbot.newbot; tbot.newbot.main(sys.argv[1:])",
-            "-C",
-            str(tcdir),
-            *args,
-        ],
-        capture_output=True,
-        text=True,
-        cwd=pathlib.Path(__file__).parents[2],
-    )
-
-
-def test_newbot_params(tcdir: pathlib.Path) -> None:
-    res = run_newbot(
+def test_newbot_params(newbot_main: NewbotMain, tcdir: pathlib.Path) -> None:
+    res = newbot_main(
         tcdir,
         "-p",
         "count=5",
@@ -225,15 +254,19 @@ def test_newbot_params(tcdir: pathlib.Path) -> None:
     assert "other" in res.stdout
 
 
-def test_newbot_checks_all_before_running(tcdir: pathlib.Path) -> None:
-    res = run_newbot(tcdir, "tcs.other", "tcs.ping:hots=10.0.0.1")
+def test_newbot_checks_all_before_running(
+    newbot_main: NewbotMain, tcdir: pathlib.Path
+) -> None:
+    res = newbot_main(tcdir, "tcs.other", "tcs.ping:hots=10.0.0.1")
     assert res.returncode != 0
     assert "has no parameter `hots`" in res.stdout + res.stderr
     assert "other\n" not in res.stdout
 
 
-def test_newbot_param_of_no_testcase(tcdir: pathlib.Path) -> None:
-    res = run_newbot(tcdir, "-p", "cuont=3", "tcs.ping", "tcs.other")
+def test_newbot_param_of_no_testcase(
+    newbot_main: NewbotMain, tcdir: pathlib.Path
+) -> None:
+    res = newbot_main(tcdir, "-p", "cuont=3", "tcs.ping", "tcs.other")
     assert res.returncode != 0
     assert "no testcase has the parameter `cuont`" in res.stdout + res.stderr
 
@@ -242,11 +275,54 @@ def test_newbot_param_of_no_testcase(tcdir: pathlib.Path) -> None:
     "args", [("-p", "count", "tcs.ping"), ("tcs.ping:count=1:count=2",)]
 )
 def test_newbot_malformed_param_is_usage_error(
-    tcdir: pathlib.Path, args: Tuple[str, ...]
+    newbot_main: NewbotMain, tcdir: pathlib.Path, args: Tuple[str, ...]
 ) -> None:
-    res = run_newbot(tcdir, *args)
+    res = newbot_main(tcdir, *args)
     assert res.returncode == 2
     assert "usage:" in res.stderr
+
+
+def test_newbot_logs_start_and_parameters(
+    newbot_main: NewbotMain, tcdir: pathlib.Path
+) -> None:
+    log = tcdir / "log.json"
+    res = newbot_main(tcdir, "--json-log-stream", str(log), "tcs.ping:count=2")
+    assert res.returncode == 0, res.stdout + res.stderr
+    assert "Parameters of tcs.ping" in res.stdout
+    # the log is a sequence of indented JSON objects
+    text, pos, events = log.read_text(), 0, []
+    decoder = json.JSONDecoder()
+    while text[pos:].strip():
+        ev, pos = decoder.raw_decode(text, len(text) - len(text[pos:].lstrip()))
+        events.append(ev)
+    assert events[0]["type"] == ["tbot", "begin"]
+    assert events[0]["data"]["argv"][-1] == "tcs.ping:count=2"
+    assert events[-1]["type"] == ["tbot", "end"]
+    assert events[-1]["data"]["success"]
+
+
+def test_newbot_wrong_parameter_value(
+    newbot_main: NewbotMain, tcdir: pathlib.Path
+) -> None:
+    res = newbot_main(tcdir, "tcs.label:ratio=x")
+    assert res.returncode == 1
+    assert "expected float" in res.stdout + res.stderr
+
+
+def test_run_testcase(tcs: pathlib.Path, capsys: Any) -> None:
+    newbot.run_testcase("tcs.ping:host=h:count=2")
+    assert "ping 'h' 2" in capsys.readouterr().out
+
+
+def test_resolve_no_such_function(tcs: pathlib.Path) -> None:
+    with pytest.raises(AttributeError, match="does not contain `nosuch"):
+        newbot.TestcaseCall.parse("tcs.nosuch").resolve({})
+
+
+def test_resolve_unresolvable_annotation(tcs: pathlib.Path) -> None:
+    call = newbot.TestcaseCall.parse("tcs.unresolvable:n=3")
+    call.resolve({})
+    assert call.kwargs == {"n": 3}
 
 
 def test_complete_testcase_stops_at_params() -> None:
@@ -256,7 +332,9 @@ def test_complete_testcase_stops_at_params() -> None:
 # }}}
 
 
-def test_flags_are_set_for_completion(tmp_path: pathlib.Path) -> None:
+def test_flags_are_set_for_completion(
+    newbot_main: NewbotMain, tmp_path: pathlib.Path
+) -> None:
     # a testcase module may decide with flags which testcases it has
     (tmp_path / "flagtcs.py").write_text(
         "import tbot\n\n"
@@ -264,20 +342,5 @@ def test_flags_are_set_for_completion(tmp_path: pathlib.Path) -> None:
         "    def flagged_tc() -> None:\n"
         "        pass\n"
     )
-    res = subprocess.run(
-        [
-            sys.executable,
-            "-c",
-            "import sys, tbot.newbot; tbot.newbot.main(sys.argv[1:])",
-            "-C",
-            str(tmp_path),
-            "-f",
-            "myflag",
-            "--complete-testcase",
-            "flagtcs.f",
-        ],
-        capture_output=True,
-        text=True,
-        cwd=pathlib.Path(__file__).parents[2],
-    )
+    res = newbot_main(tmp_path, "-f", "myflag", "--complete-testcase", "flagtcs.f")
     assert "flagtcs.flagged_tc" in res.stdout.split(), res.stdout + res.stderr
