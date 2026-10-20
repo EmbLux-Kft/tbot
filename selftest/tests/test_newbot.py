@@ -3,6 +3,7 @@ import json
 import os
 import pathlib
 import sys
+import traceback
 from typing import Any, Callable, NamedTuple, Optional, Tuple
 
 import pytest
@@ -48,6 +49,11 @@ def newbot_main(monkeypatch: Any, capsys: Any) -> NewbotMain:
             newbot.main(["-C", str(tcdir), *args])
         except SystemExit as e:
             returncode = e.code if isinstance(e.code, int) else 1
+        except Exception:
+            # main() raises the exception of a failed run; a subprocess would
+            # print it and exit with 1
+            traceback.print_exc()
+            returncode = 1
         out = capsys.readouterr()
         return NewbotResult(returncode, out.out, out.err)
 
