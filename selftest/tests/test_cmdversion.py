@@ -71,6 +71,7 @@ OUTPUTS = [
     ("ethtool version 6.19", "ethtool:6.19"),
     ("ps from procps-ng 4.0.6-dirty", "procps-ng:4.0.6-dirty"),
     ("i2cdetect version 4.4", "i2c-tools:4.4"),
+    ("candump 4.0.6", "canutils:4.0.6"),
 ]
 
 
@@ -81,6 +82,26 @@ def test_parse_version_output(output: str, expected: str) -> None:
 
 def test_parse_version_output_none() -> None:
     assert cmdversion.parse_version_output("top: invalid option -- 'v'") is None
+
+
+# start of the usage that candump of can-utils prints for --version
+CAN_UTILS_CANDUMP_USAGE = """candump: invalid option -- '-'
+candump - dump CAN bus traffic.
+
+Usage: candump [options] <CAN interface>+
+  (use CTRL-C to terminate candump)
+
+Options:
+         -t <type>   (timestamp: (a)bsolute/(d)elta/(z)ero/(A)bsolute w date)
+         -H          (read hardware timestamps instead of system timestamps)
+
+Use interface name 'any' to receive from all CAN interfaces.
+"""
+
+
+def test_parse_version_output_can_utils_candump() -> None:
+    """candump of can-utils has no version output, it stays full:unknown"""
+    assert cmdversion.parse_version_output(CAN_UTILS_CANDUMP_USAGE) is None
 
 
 def test_parse_busybox_banner() -> None:
