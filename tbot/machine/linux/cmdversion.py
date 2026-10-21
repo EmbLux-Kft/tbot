@@ -146,6 +146,9 @@ PROBES: typing.Dict[str, typing.Union[str, typing.Tuple[str, ...]]] = {
     "nandwrite": "--version",
     "mtdinfo": "--version",
     "i2cdetect": "-V",
+    # candump of canutils (Pengutronix) prints its version; the candump of
+    # can-utils has no long options and only prints its usage
+    "candump": "--version",
 }
 
 #: Regular expressions for the version output, tried in this order; group 1
@@ -160,6 +163,7 @@ PATTERNS: typing.List[str] = [
     r"^GNU (Awk) (\d[\w.+-]*)",  # gawk
     r"^(ethtool) version (\d[\w.+-]*)",
     r"^(i2cdetect) version (\d[\w.+-]*)",
+    r"^(candump) (\d[\w.+-]*)$",  # candump of canutils (Pengutronix)
 ]
 
 #: Project names as the version output spells them, mapped to the name
@@ -169,6 +173,7 @@ IMPL_NAMES: typing.Dict[str, str] = {
     "Awk": "gawk",
     "procps": "procps-ng",
     "i2cdetect": "i2c-tools",
+    "candump": "canutils",
 }
 
 #: Commands without a version output whose implementation is known from
