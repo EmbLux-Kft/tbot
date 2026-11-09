@@ -19,11 +19,20 @@ import contextlib
 import typing
 
 import tbot
+import tbot.error
 from . import connector
 from .. import linux, channel
 from ..linux import auth
 
 Self = typing.TypeVar("Self", bound="SSHConnector")
+
+# What ssh prints when a host key does not match its known_hosts, for
+# the machine itself or for a jump host on the way to it.
+_HOSTKEY_MESSAGES = (
+    "REMOTE HOST IDENTIFICATION HAS CHANGED",
+    "Host key verification failed",
+    "host key check failure",
+)
 
 
 class SSHConnector(connector.Connector):
@@ -64,6 +73,28 @@ class SSHConnector(connector.Connector):
         Set this to true if the remote changes its host key often.
         """
         return False
+
+    @property
+    def check_hostkey(self) -> bool:
+        """
+        Stop with :py:class:`tbot.error.HostKeyError` when ssh reports a host
+        key which does not match its ``known_hosts``.
+
+        ssh does not refuse such a connection when ``StrictHostKeyChecking``
+        is ``no``: it logs in, but turns off password authentication and
+        forwarding.  A ``ProxyJump`` then breaks off with ``forwarding
+        disabled due to host key check failure`` and the shell of the new
+        machine never shows up, and the reason ends up in the log only
+        among the output of the channel.
+
+        To catch this, tbot runs the ssh command once with ``true`` before
+        it logs in and reads what ssh prints.  This costs one more ssh
+        connection per machine.  Return ``False`` to skip it.  It is
+        skipped as well when :py:attr:`ignore_hostkey` is set.
+
+        .. versionadded:: UNRELEASED
+        """
+        return True
 
     @property
     def requires_legacy_scp(self) -> bool:
@@ -215,15 +246,27 @@ class SSHConnector(connector.Connector):
                     f"ControlPath={multiplexing_dir.at_host(self.host)}/%C",
                 ]
 
-            with h.open_channel(
+            args = [
                 *cmd,
                 *hk_disable,
                 *multiplexing,
                 *["-p", str(self.port)],
                 *[arg for opt in self.ssh_config for arg in ["-o", opt]],
                 f"{self.username}@{self.hostname}",
-            ) as ch:
+            ]
+
+            if self.check_hostkey and not self.ignore_hostkey:
+                self._check_hostkey(h, args)
+
+            with h.open_channel(*args) as ch:
                 yield ch
+
+    def _check_hostkey(
+        self, h: linux.LinuxShell, args: typing.List[typing.Any]
+    ) -> None:
+        _, output = h.exec(*args, "true")
+        if any(msg in output for msg in _HOSTKEY_MESSAGES):
+            raise tbot.error.HostKeyError(self, output.strip())
 
     def clone(self) -> "SSHConnector":
         """Clone this machine."""

@@ -242,6 +242,31 @@ class MissingToolError(MachineError):
         )
 
 
+class HostKeyError(MachineError):
+    """
+    ssh reported a host key which does not match its ``known_hosts``.
+
+    This is raised by :py:class:`~tbot.machine.connector.SSHConnector` before
+    it logs in, see
+    :py:attr:`~tbot.machine.connector.SSHConnector.check_hostkey`.  The key
+    may belong to the machine itself or to a jump host on the way to it.
+
+    The message of ssh is in :py:attr:`ssh_output`.  It names the line in
+    ``known_hosts`` and the command to remove it.  Make sure the new key is
+    the right one before you do so; this is the warning ssh gives for a
+    man-in-the-middle attack.
+
+    .. versionadded:: UNRELEASED
+    """
+
+    def __init__(self, host: "machine.Machine", ssh_output: str):
+        self.host = host
+        self.ssh_output = ssh_output
+        super().__init__(
+            f"ssh to {host.name!r} failed the host key check:\n{ssh_output}"
+        )
+
+
 class ChannelBorrowedError(ApiViolationError):
     """
     Error type for exceptions when accessing a channel which is currently borrowed.
